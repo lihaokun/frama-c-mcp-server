@@ -1,0 +1,36 @@
+# OCaml / dune
+_build/
+*.byte
+*.native
+*.cmo
+*.cmi
+*.cma
+*.cmx
+*.cmxa
+*.cmxs
+*.o
+*.a
+*.so
+.merlin
+*.install
+
+# opam
+_opam/
+
+# Rust (for experiments)
+target/
+Cargo.lock
+
+# Editor
+*~
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project specific
+*.log
