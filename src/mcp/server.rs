@@ -139,12 +139,28 @@ impl FramaCMcpServer {
         &self,
         Parameters(params): Parameters<ReloadProjectParams>,
     ) -> Result<CallToolResult, McpError> {
-        if let Some(files) = params.files {
-            self.client
-                .set("kernel.ast.setFiles", json!(files))
+        // Determine target file list: caller-specified or current server files.
+        let files = match params.files {
+            Some(f) => json!(f),
+            None => self
+                .client
+                .get("kernel.ast.getFiles", json!(null))
                 .await
-                .map_err(McpError::from)?;
-        }
+                .map_err(McpError::from)?,
+        };
+        // Force AST invalidation via setFiles([]) → setFiles(files) → compute.
+        // This is the same sequence Ivette uses (ivette/src/frama-c/menu.ts:
+        // reparseFiles).  Frama-C's state dependency system only propagates
+        // invalidation along Kernel.Files → Ast.self when the parameter value
+        // actually changes; setFiles with the same list is a no-op.
+        self.client
+            .set("kernel.ast.setFiles", json!([]))
+            .await
+            .map_err(McpError::from)?;
+        self.client
+            .set("kernel.ast.setFiles", files)
+            .await
+            .map_err(McpError::from)?;
         self.client
             .exec("kernel.ast.compute", json!(null), Duration::from_secs(120))
             .await
