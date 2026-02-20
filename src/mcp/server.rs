@@ -550,13 +550,16 @@ impl FramaCMcpServer {
         let filtered: Vec<_> = goals
             .iter()
             .filter(|g| {
+                // Frama-C uses "scope" field for function declaration marker
                 if let Some(ref marker) = scope_marker {
-                    if g["function"].as_str() != Some(marker) {
+                    if g["scope"].as_str() != Some(marker) {
                         return false;
                     }
                 }
+                // Frama-C status is uppercase (e.g. "VALID"), compare case-insensitively
                 if let Some(ref status) = params.status {
-                    if g["status"].as_str() != Some(status) {
+                    let goal_status = g["status"].as_str().unwrap_or_default();
+                    if !goal_status.eq_ignore_ascii_case(status) {
                         return false;
                     }
                 }

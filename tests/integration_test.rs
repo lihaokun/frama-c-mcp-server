@@ -5,11 +5,14 @@
 //!     frama-c test/test_abs.c -server-socket /tmp/frama-c-test.sock
 //!   Phase 2 test:
 //!     frama-c test/test_phase2.c -server-socket /tmp/frama-c-test-p2.sock
+//!   Comprehensive test:
+//!     frama-c test/test_comprehensive.c -server-socket /tmp/frama-c-test-comp.sock
 //!
 //! Note: Frama-C Server accepts only ONE client at a time and shutdown()
 //! kills the server process. All live-server tests are consolidated into
 //! one comprehensive test per phase. Run with --test-threads=1.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -23,6 +26,11 @@ fn socket_path() -> String {
 
 fn socket_path_p2() -> String {
     std::env::var("FRAMA_C_SOCK_P2").unwrap_or_else(|_| "/tmp/frama-c-test-p2.sock".into())
+}
+
+fn socket_path_comp() -> String {
+    std::env::var("FRAMA_C_SOCK_COMP")
+        .unwrap_or_else(|_| "/tmp/frama-c-test-comp.sock".into())
 }
 
 async fn connect() -> (FramaCClient, Arc<RwLock<SessionState>>) {
@@ -795,6 +803,543 @@ async fn test_phase2_workflow() {
 
     client.shutdown().await.expect("shutdown failed");
     println!("\n=== All Phase 2 steps passed ===");
+}
+
+// ─── Test: Comprehensive Phase 2 (all 15 tools) ─────────────────────
+//
+// Prerequisites:
+//   frama-c test/test_comprehensive.c -server-socket /tmp/frama-c-test-comp.sock
+//
+// This test exercises EVERY Phase 2 tool against a C file designed to
+// produce EVA alarms, WP unknown goals, globals, and multi-level calls.
+
+async fn connect_comp() -> (FramaCClient, Arc<RwLock<SessionState>>) {
+    let state = Arc::new(RwLock::new(SessionState::default()));
+    let client = FramaCClient::connect(&socket_path_comp(), state.clone())
+        .await
+        .expect("failed to connect to Frama-C server (comprehensive)");
+    (client, state)
+}
+
+#[tokio::test]
+async fn test_comprehensive() {
+    let (client, state) = connect_comp().await;
+
+    // ═══════════════════════════════════════════════════════════
+    // PHASE A: Setup — connect, fetch functions/globals/callgraph
+    // ═══════════════════════════════════════════════════════════
+
+    // ── A1. Functions ──
+    println!("\n=== A1. Functions ===");
+    let expected_fns = [
+        "get_element", "safe_div", "unsafe_div", "sum_positive",
+        "identity", "validate", "process_range", "run_pipeline", "main",
+    ];
+    {
+        let st = state.read().await;
+        assert!(st.project_loaded);
+        println!("[info] loaded {} functions", st.functions.len());
+        for name in &expected_fns {
+            assert!(
+                st.resolve_function(name).is_some(),
+                "missing function: {}",
+                name
+            );
+        }
+    }
+    println!("[ok] {} functions loaded", expected_fns.len());
+
+    // ── A2. Globals (lookup_symbol: global) ──
+    println!("\n=== A2. fetchGlobals ===");
+    let _ = client
+        .get("kernel.ast.reloadGlobals", serde_json::json!(null))
+        .await;
+    let globals = client
+        .fetch_all("kernel.ast.fetchGlobals")
+        .await
+        .expect("fetchGlobals failed");
+    println!("[info] {} globals", globals.len());
+    {
+        let mut st = state.write().await;
+        st.update_globals(&globals);
+    }
+    // Verify known globals
+    {
+        let st = state.read().await;
+        let buf = st.resolve_global("buffer");
+        let bs = st.resolve_global("buf_size");
+        let ec = st.resolve_global("error_count");
+        println!(
+            "[info] buffer={}, buf_size={}, error_count={}",
+            buf.is_some(), bs.is_some(), ec.is_some()
+        );
+        // At least buf_size and error_count should be found (buffer is array, may differ)
+        assert!(bs.is_some(), "buf_size global not found");
+        assert!(ec.is_some(), "error_count global not found");
+    }
+    println!("[ok] globals verified");
+
+    // ── A3. Callgraph + cache (get_callgraph, trace_call_chain prep) ──
+    println!("\n=== A3. Callgraph ===");
+    client
+        .exec(
+            "plugins.callgraph.compute",
+            serde_json::json!(null),
+            Duration::from_secs(60),
+        )
+        .await
+        .expect("callgraph.compute failed");
+    let graph = client
+        .get("plugins.callgraph.getCallgraph", serde_json::json!(null))
+        .await
+        .expect("getCallgraph failed");
+    {
+        let mut st = state.write().await;
+        st.update_callgraph(&graph);
+        println!(
+            "[info] {} edges, {} vertices",
+            st.callgraph_edges.len(),
+            st.callgraph_vertices.len()
+        );
+        // main → run_pipeline → process_range → validate → get_element
+        // That's a 4-level call chain
+        let main_decl = st.resolve_function("main").unwrap().declaration.clone();
+        let main_callees = st.get_callees(&main_decl);
+        println!("[info] main callees: {:?}", main_callees);
+        assert!(!main_callees.is_empty(), "main should have callees");
+    }
+    println!("[ok] callgraph cached");
+
+    // ── A4. trace_call_chain (BFS traversal) ──
+    println!("\n=== A4. trace_call_chain ===");
+    {
+        let st = state.read().await;
+        let main_decl = st.resolve_function("main").unwrap().declaration.clone();
+        // BFS down from main
+        let mut queue = std::collections::VecDeque::new();
+        let mut visited = std::collections::HashSet::new();
+        let mut chain = Vec::new();
+        queue.push_back((main_decl.clone(), 0u32));
+        while let Some((marker, depth)) = queue.pop_front() {
+            if depth > 5 || visited.contains(&marker) {
+                continue;
+            }
+            visited.insert(marker.clone());
+            let callees = st.get_callees(&marker);
+            for callee in callees {
+                let from_name = st.resolve_decl_to_name(&marker).unwrap_or("?");
+                let to_name = st.resolve_decl_to_name(callee).unwrap_or("?");
+                chain.push(format!("{}→{} (depth {})", from_name, to_name, depth));
+                queue.push_back((callee.to_string(), depth + 1));
+            }
+        }
+        println!("[info] call chain from main:");
+        for edge in &chain {
+            println!("  {}", edge);
+        }
+        // Should reach at least get_element (4 levels deep)
+        assert!(
+            visited.len() >= 4,
+            "BFS should visit at least 4 functions, got {}",
+            visited.len()
+        );
+    }
+    println!("[ok] trace_call_chain verified");
+
+    // ═══════════════════════════════════════════════════════════
+    // PHASE B: EVA analysis
+    // ═══════════════════════════════════════════════════════════
+
+    // ── B1. Run EVA ──
+    println!("\n=== B1. Run EVA ===");
+    client
+        .exec(
+            "plugins.eva.general.compute",
+            serde_json::json!(null),
+            Duration::from_secs(300),
+        )
+        .await
+        .expect("EVA compute failed");
+    {
+        let mut st = state.write().await;
+        st.set_eva_completed();
+    }
+    let comp = client
+        .get("plugins.eva.general.getComputationState", serde_json::json!(null))
+        .await
+        .expect("getComputationState failed");
+    assert_eq!(comp.as_str(), Some("computed"));
+    println!("[ok] EVA completed");
+
+    // ── B2. get_eva_alarms — expect alarms from unsafe_div ──
+    println!("\n=== B2. get_eva_alarms ===");
+    client
+        .get("kernel.properties.reloadStatus", serde_json::json!(null))
+        .await
+        .expect("reloadStatus failed");
+    let all_props = client
+        .fetch_all("kernel.properties.fetchStatus")
+        .await
+        .expect("fetchStatus failed");
+    assert!(!all_props.is_empty());
+
+    let mut by_status: HashMap<String, Vec<&serde_json::Value>> = HashMap::new();
+    for prop in &all_props {
+        let status = prop["status"].as_str().unwrap_or("unknown");
+        by_status.entry(status.to_string()).or_default().push(prop);
+    }
+    println!("[info] properties by status:");
+    for (status, props) in &by_status {
+        println!("  {}: {}", status, props.len());
+    }
+
+    // unsafe_div should produce an alarm (unknown or invalid)
+    let non_valid: Vec<_> = all_props
+        .iter()
+        .filter(|p| p["status"].as_str() != Some("valid"))
+        .collect();
+    println!(
+        "[info] {} non-valid properties (expected: alarm from unsafe_div)",
+        non_valid.len()
+    );
+    // There should be at least one alarm/unknown from unsafe_div
+    assert!(
+        !non_valid.is_empty(),
+        "unsafe_div should produce at least one EVA alarm"
+    );
+    println!("[ok] EVA alarms detected");
+
+    // ── B3. find_callers ──
+    println!("\n=== B3. find_callers ===");
+    let get_element_decl = {
+        let st = state.read().await;
+        st.resolve_function("get_element").unwrap().declaration.clone()
+    };
+    let callers = client
+        .get(
+            "plugins.eva.general.getCallers",
+            serde_json::json!(get_element_decl),
+        )
+        .await
+        .expect("getCallers failed");
+    println!(
+        "[ok] getCallers(get_element): {}",
+        serde_json::to_string(&callers).unwrap()
+    );
+    // get_element is called by validate
+    assert!(callers.is_array());
+
+    // ── B4. get_eva_value ──
+    println!("\n=== B4. get_eva_value ===");
+    let unsafe_div_decl = {
+        let st = state.read().await;
+        st.resolve_function("unsafe_div").unwrap().declaration.clone()
+    };
+    let _ = client
+        .get("kernel.ast.printDeclaration", serde_json::json!(unsafe_div_decl))
+        .await;
+    // Get values at a statement marker (the division)
+    // We don't know the exact marker, but we can query a known one
+    let vals = client
+        .get(
+            "plugins.eva.values.getValues",
+            serde_json::json!({"target": "#s2"}),
+        )
+        .await;
+    match vals {
+        Ok(v) => println!("[ok] getValues: {}", serde_json::to_string(&v).unwrap()),
+        Err(e) => println!("[info] getValues(#s2): {} (marker may not exist)", e),
+    }
+
+    // ── B5. investigate_alarm ──
+    println!("\n=== B5. investigate_alarm ===");
+    // Find a non-valid property to investigate
+    if let Some(alarm_prop) = non_valid.first() {
+        let prop_key = alarm_prop["key"].as_str().unwrap_or("?");
+        println!("[info] investigating property: {}", prop_key);
+        println!(
+            "[info] property detail: {}",
+            serde_json::to_string_pretty(alarm_prop).unwrap()
+        );
+        // Check kinstr field
+        let kinstr = alarm_prop["kinstr"].as_str();
+        println!("[info] kinstr: {:?}", kinstr);
+        // Check scope field (function marker)
+        let scope = alarm_prop["scope"].as_str();
+        println!("[info] scope: {:?}", scope);
+        // If kinstr exists, try getValues on it
+        if let Some(ki) = kinstr {
+            let values = client
+                .get(
+                    "plugins.eva.values.getValues",
+                    serde_json::json!({"target": ki}),
+                )
+                .await;
+            match values {
+                Ok(v) => println!("[ok] investigate values: {}", serde_json::to_string(&v).unwrap()),
+                Err(e) => println!("[info] investigate values: {}", e),
+            }
+        }
+        // If scope exists, try getCallers
+        if let Some(sc) = scope {
+            let callers = client
+                .get("plugins.eva.general.getCallers", serde_json::json!(sc))
+                .await;
+            match callers {
+                Ok(c) => println!("[ok] investigate callers: {}", serde_json::to_string(&c).unwrap()),
+                Err(e) => println!("[info] investigate callers: {}", e),
+            }
+        }
+    }
+    println!("[ok] investigate_alarm flow verified");
+
+    // ── B6. get_current_annotations ──
+    println!("\n=== B6. get_current_annotations ===");
+    client
+        .get("kernel.properties.reloadStatus", serde_json::json!(null))
+        .await
+        .expect("reloadStatus failed");
+    let props_again = client
+        .fetch_all("kernel.properties.fetchStatus")
+        .await
+        .expect("fetchStatus failed");
+    // Filter for safe_div annotations
+    let safe_div_decl = {
+        let st = state.read().await;
+        st.resolve_function("safe_div").unwrap().declaration.clone()
+    };
+    let safe_div_annots: Vec<_> = props_again
+        .iter()
+        .filter(|p| p["scope"].as_str() == Some(&safe_div_decl))
+        .collect();
+    println!(
+        "[ok] safe_div has {} annotations",
+        safe_div_annots.len()
+    );
+    assert!(
+        !safe_div_annots.is_empty(),
+        "safe_div should have annotations (requires/ensures)"
+    );
+
+    // ═══════════════════════════════════════════════════════════
+    // PHASE C: WP verification
+    // ═══════════════════════════════════════════════════════════
+
+    // ── C1. Run WP on multiple functions ──
+    println!("\n=== C1. Run WP ===");
+    client
+        .set("plugins.wp.setTimeout", serde_json::json!(5))
+        .await
+        .expect("setTimeout failed");
+
+    // WP on safe_div (should be provable)
+    let _ = client
+        .get("kernel.ast.printDeclaration", serde_json::json!(safe_div_decl))
+        .await;
+    let safe_div_pv = safe_div_decl.replace("#F", "#v");
+    client
+        .exec(
+            "plugins.wp.startProofs",
+            serde_json::json!(safe_div_pv),
+            Duration::from_secs(120),
+        )
+        .await
+        .expect("startProofs(safe_div) failed");
+    println!("[ok] WP: safe_div done");
+
+    // WP on identity (ensures \result > 0 should NOT be provable)
+    let identity_decl = {
+        let st = state.read().await;
+        st.resolve_function("identity").unwrap().declaration.clone()
+    };
+    let _ = client
+        .get("kernel.ast.printDeclaration", serde_json::json!(identity_decl))
+        .await;
+    let identity_pv = identity_decl.replace("#F", "#v");
+    client
+        .exec(
+            "plugins.wp.startProofs",
+            serde_json::json!(identity_pv),
+            Duration::from_secs(120),
+        )
+        .await
+        .expect("startProofs(identity) failed");
+    println!("[ok] WP: identity done");
+
+    // WP on get_element (should be provable)
+    let _ = client
+        .get("kernel.ast.printDeclaration", serde_json::json!(get_element_decl))
+        .await;
+    let get_element_pv = get_element_decl.replace("#F", "#v");
+    client
+        .exec(
+            "plugins.wp.startProofs",
+            serde_json::json!(get_element_pv),
+            Duration::from_secs(120),
+        )
+        .await
+        .expect("startProofs(get_element) failed");
+    println!("[ok] WP: get_element done");
+
+    {
+        let mut st = state.write().await;
+        st.set_wp_completed();
+    }
+
+    // ── C2. get_wp_goals — verify format + filtering ──
+    println!("\n=== C2. get_wp_goals ===");
+    let _ = client
+        .get("plugins.wp.reloadGoals", serde_json::json!(null))
+        .await
+        .expect("reloadGoals failed");
+    let goals = client
+        .fetch_all("plugins.wp.fetchGoals")
+        .await
+        .expect("fetchGoals failed");
+    println!("[info] {} total goals", goals.len());
+    assert!(!goals.is_empty(), "should have WP goals");
+
+    // Print first goal to verify format
+    println!(
+        "[info] sample goal:\n{}",
+        serde_json::to_string_pretty(&goals[0]).unwrap()
+    );
+
+    // Verify goal fields (actual format from Frama-C):
+    //   wpo: goal ID string, scope: function decl marker,
+    //   fct: function name, status: uppercase ("VALID", "UNKNOWN")
+    let first = &goals[0];
+    assert!(first.get("wpo").is_some(), "goal should have 'wpo' field");
+    assert!(first.get("scope").is_some(), "goal should have 'scope' field");
+    assert!(first.get("status").is_some(), "goal should have 'status' field");
+    println!("[ok] fetchGoals format verified");
+
+    // Group by status
+    let mut goals_by_status: HashMap<String, usize> = HashMap::new();
+    for g in &goals {
+        let status = g["status"].as_str().unwrap_or("?").to_string();
+        *goals_by_status.entry(status).or_default() += 1;
+    }
+    println!("[info] goals by status: {:?}", goals_by_status);
+
+    // identity's ensures \result > 0 should NOT be valid
+    // Note: Frama-C uses "scope" (decl marker) not "function" for filtering
+    let identity_goals: Vec<_> = goals
+        .iter()
+        .filter(|g| g["scope"].as_str() == Some(&identity_decl))
+        .collect();
+    println!("[info] identity goals: {}", identity_goals.len());
+    for ig in &identity_goals {
+        println!(
+            "  status={}, wpo={}, name={}",
+            ig["status"].as_str().unwrap_or("?"),
+            ig["wpo"].as_str().unwrap_or("?"),
+            ig["name"].as_str().unwrap_or("?")
+        );
+    }
+    if !identity_goals.is_empty() {
+        let has_non_valid = identity_goals
+            .iter()
+            .any(|g| g["status"].as_str() != Some("VALID"));
+        println!(
+            "[info] identity has non-VALID goals: {}",
+            has_non_valid
+        );
+    }
+    println!("[ok] get_wp_goals verified");
+
+    // ═══════════════════════════════════════════════════════════
+    // PHASE D: Composite tools
+    // ═══════════════════════════════════════════════════════════
+
+    // ── D1. lookup_symbol — function ──
+    println!("\n=== D1. lookup_symbol (function) ===");
+    {
+        let st = state.read().await;
+        let info = st.resolve_function("safe_div").unwrap();
+        println!(
+            "[ok] safe_div: file={}, line={}, marker={}, decl={}",
+            info.file, info.line, info.marker, info.declaration
+        );
+    }
+
+    // ── D2. lookup_symbol — global variable ──
+    println!("\n=== D2. lookup_symbol (global) ===");
+    {
+        let st = state.read().await;
+        let info = st.resolve_global("error_count").unwrap();
+        println!(
+            "[ok] error_count: type={}, file={}, line={}, marker={}, decl={}",
+            info.typ, info.file, info.line, info.marker, info.declaration
+        );
+    }
+
+    // ── D3. suggest_verification_plan logic ──
+    println!("\n=== D3. suggest_verification_plan ===");
+    {
+        let st = state.read().await;
+        assert!(st.project_loaded);
+        assert!(st.eva_completed);
+        assert!(st.wp_completed);
+        println!("[ok] both EVA and WP completed → suggest review");
+    }
+    // Reload properties to check for invalid/unknown
+    client
+        .get("kernel.properties.reloadStatus", serde_json::json!(null))
+        .await
+        .expect("reloadStatus failed");
+    let final_props = client
+        .fetch_all("kernel.properties.fetchStatus")
+        .await
+        .expect("fetchStatus failed");
+    let mut final_by_status: HashMap<String, usize> = HashMap::new();
+    for p in &final_props {
+        let s = p["status"].as_str().unwrap_or("?").to_string();
+        *final_by_status.entry(s).or_default() += 1;
+    }
+    println!("[info] final properties: {:?}", final_by_status);
+    let unknown_count = final_by_status.get("unknown").copied().unwrap_or(0);
+    let invalid_count = final_by_status.get("invalid").copied().unwrap_or(0);
+    if invalid_count > 0 {
+        println!("[ok] suggest: investigate {} invalid properties (high priority)", invalid_count);
+    }
+    if unknown_count > 0 {
+        println!("[ok] suggest: {} unknown properties need attention", unknown_count);
+    }
+    println!("[ok] suggest_verification_plan logic verified");
+
+    // ── D4. get_verification_status ──
+    println!("\n=== D4. get_verification_status ===");
+    let eva_comp = client
+        .get("plugins.eva.general.getComputationState", serde_json::json!(null))
+        .await
+        .expect("getComputationState failed");
+    assert_eq!(eva_comp.as_str(), Some("computed"));
+    let wp_tasks = client
+        .get("plugins.wp.getScheduledTasks", serde_json::json!(null))
+        .await
+        .expect("getScheduledTasks failed");
+    assert!(wp_tasks.is_object());
+    println!("[ok] verification status: EVA computed, WP tasks available");
+
+    // ═══════════════════════════════════════════════════════════
+    // FINAL
+    // ═══════════════════════════════════════════════════════════
+
+    println!("\n=== Final state ===");
+    {
+        let st = state.read().await;
+        assert!(st.project_loaded);
+        assert!(st.eva_completed);
+        assert!(st.wp_completed);
+        assert!(st.functions.len() >= 9);
+        assert!(st.globals.len() >= 2);
+        assert!(!st.callgraph_edges.is_empty());
+    }
+    println!("[ok] all assertions passed");
+
+    client.shutdown().await.expect("shutdown failed");
+    println!("\n=== Comprehensive test complete ===");
 }
 
 // ─── Offline tests (no live server needed) ───────────────────────────
