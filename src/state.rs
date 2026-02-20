@@ -25,8 +25,8 @@ pub struct FunctionInfo {
 #[derive(Debug, Clone)]
 pub struct GlobalInfo {
     pub name: String,
-    pub marker: String,       // e.g. "kv#5"
-    pub declaration: String,  // e.g. "#V5"
+    pub marker: String,       // e.g. "vi#25"
+    pub declaration: String,  // e.g. "#G25"
     pub typ: String,          // e.g. "int"
     pub file: String,
     pub line: u32,
@@ -95,14 +95,16 @@ impl SessionState {
 
     /// Populate the globals cache from `fetchGlobals` response entries.
     ///
-    /// Expected Frama-C Server JSON format (to be verified with live server):
+    /// Verified Frama-C Server JSON format:
     /// ```json
     /// {
-    ///   "name": "global_var",
-    ///   "key": "kv#5",
-    ///   "decl": "#V5",
+    ///   "name": "max_val",
+    ///   "key": "vi#25",           // global variable marker
+    ///   "decl": "#G25",           // declaration marker
     ///   "type": "int",
-    ///   "sloc": { "file": "/path/to/file.c", "line": 3 }
+    ///   "const": false,
+    ///   "volatile": false,
+    ///   "sloc": { "file": "/path/to/file.c", "line": 2 }
     /// }
     /// ```
     pub fn update_globals(&mut self, entries: &[serde_json::Value]) {
@@ -170,10 +172,12 @@ impl SessionState {
     }
 
     /// Find all callers of a function by its declaration marker.
+    /// Direction is encoded by src→dst; kind is metadata (e.g. "both",
+    /// "inter_functions"), not a direction filter.
     pub fn get_callers(&self, decl_marker: &str) -> Vec<&str> {
         self.callgraph_edges
             .iter()
-            .filter(|e| e.dst == decl_marker && (e.kind == "both" || e.kind == "calls"))
+            .filter(|e| e.dst == decl_marker)
             .map(|e| e.src.as_str())
             .collect()
     }
@@ -182,7 +186,7 @@ impl SessionState {
     pub fn get_callees(&self, decl_marker: &str) -> Vec<&str> {
         self.callgraph_edges
             .iter()
-            .filter(|e| e.src == decl_marker && (e.kind == "both" || e.kind == "calls"))
+            .filter(|e| e.src == decl_marker)
             .map(|e| e.dst.as_str())
             .collect()
     }
@@ -322,9 +326,11 @@ mod tests {
         let mut state = SessionState::default();
         let entries = vec![serde_json::json!({
             "name": "counter",
-            "key": "kv#5",
-            "decl": "#V5",
+            "key": "vi#24",
+            "decl": "#G24",
             "type": "int",
+            "const": false,
+            "volatile": false,
             "sloc": {
                 "file": "/tmp/test.c",
                 "line": 3
@@ -333,8 +339,8 @@ mod tests {
         state.update_globals(&entries);
         assert_eq!(state.globals.len(), 1);
         let info = state.resolve_global("counter").unwrap();
-        assert_eq!(info.marker, "kv#5");
-        assert_eq!(info.declaration, "#V5");
+        assert_eq!(info.marker, "vi#24");
+        assert_eq!(info.declaration, "#G24");
         assert_eq!(info.typ, "int");
         assert_eq!(info.file, "/tmp/test.c");
         assert_eq!(info.line, 3);
@@ -362,38 +368,49 @@ mod tests {
     #[test]
     fn update_callgraph_and_query() {
         let mut state = SessionState::default();
+        // Uses actual Frama-C kinds: "both" and "inter_functions"
         let graph = serde_json::json!({
             "edges": [
-                {"src": "#F36", "dst": "#F24", "kind": "both"},
-                {"src": "#F36", "dst": "#F10", "kind": "calls"},
-                {"src": "#F10", "dst": "#F24", "kind": "calls"}
+                {"src": "#F44", "dst": "#F37", "kind": "both"},
+                {"src": "#F37", "dst": "#F33", "kind": "inter_functions"},
+                {"src": "#F37", "dst": "#F26", "kind": "inter_functions"}
             ],
             "vertices": [
-                {"name": "main", "decl": "#F36"},
-                {"name": "abs_val", "decl": "#F24"},
-                {"name": "helper", "decl": "#F10"}
+                {"name": "main", "decl": "#F44"},
+                {"name": "process", "decl": "#F37"},
+                {"name": "increment", "decl": "#F33"},
+                {"name": "clamp", "decl": "#F26"}
             ]
         });
         state.update_callgraph(&graph);
 
         assert_eq!(state.callgraph_edges.len(), 3);
-        assert_eq!(state.callgraph_vertices.len(), 3);
+        assert_eq!(state.callgraph_vertices.len(), 4);
 
-        // main calls abs_val and helper
-        let callees = state.get_callees("#F36");
-        assert_eq!(callees.len(), 2);
-        assert!(callees.contains(&"#F24"));
-        assert!(callees.contains(&"#F10"));
+        // main calls process
+        let main_callees = state.get_callees("#F44");
+        assert_eq!(main_callees.len(), 1);
+        assert!(main_callees.contains(&"#F37"));
 
-        // abs_val is called by main and helper
-        let callers = state.get_callers("#F24");
-        assert_eq!(callers.len(), 2);
-        assert!(callers.contains(&"#F36"));
-        assert!(callers.contains(&"#F10"));
+        // process calls clamp and increment
+        let process_callees = state.get_callees("#F37");
+        assert_eq!(process_callees.len(), 2);
+        assert!(process_callees.contains(&"#F33"));
+        assert!(process_callees.contains(&"#F26"));
+
+        // clamp is called by process
+        let clamp_callers = state.get_callers("#F26");
+        assert_eq!(clamp_callers.len(), 1);
+        assert!(clamp_callers.contains(&"#F37"));
+
+        // process is called by main
+        let process_callers = state.get_callers("#F37");
+        assert_eq!(process_callers.len(), 1);
+        assert!(process_callers.contains(&"#F44"));
 
         // resolve decl to name
-        assert_eq!(state.resolve_decl_to_name("#F36"), Some("main"));
-        assert_eq!(state.resolve_decl_to_name("#F24"), Some("abs_val"));
+        assert_eq!(state.resolve_decl_to_name("#F44"), Some("main"));
+        assert_eq!(state.resolve_decl_to_name("#F26"), Some("clamp"));
         assert_eq!(state.resolve_decl_to_name("#F99"), None);
     }
 

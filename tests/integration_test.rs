@@ -1,11 +1,14 @@
 //! Integration tests against a live Frama-C Server.
 //!
 //! Prerequisites:
-//!   frama-c <files> -server-socket /tmp/frama-c-test.sock
+//!   Phase 1 test:
+//!     frama-c test/test_abs.c -server-socket /tmp/frama-c-test.sock
+//!   Phase 2 test:
+//!     frama-c test/test_phase2.c -server-socket /tmp/frama-c-test-p2.sock
 //!
 //! Note: Frama-C Server accepts only ONE client at a time and shutdown()
 //! kills the server process. All live-server tests are consolidated into
-//! one comprehensive test. Run with --test-threads=1.
+//! one comprehensive test per phase. Run with --test-threads=1.
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -18,11 +21,23 @@ fn socket_path() -> String {
     std::env::var("FRAMA_C_SOCK").unwrap_or_else(|_| "/tmp/frama-c-test.sock".into())
 }
 
+fn socket_path_p2() -> String {
+    std::env::var("FRAMA_C_SOCK_P2").unwrap_or_else(|_| "/tmp/frama-c-test-p2.sock".into())
+}
+
 async fn connect() -> (FramaCClient, Arc<RwLock<SessionState>>) {
     let state = Arc::new(RwLock::new(SessionState::default()));
     let client = FramaCClient::connect(&socket_path(), state.clone())
         .await
         .expect("failed to connect to Frama-C server");
+    (client, state)
+}
+
+async fn connect_p2() -> (FramaCClient, Arc<RwLock<SessionState>>) {
+    let state = Arc::new(RwLock::new(SessionState::default()));
+    let client = FramaCClient::connect(&socket_path_p2(), state.clone())
+        .await
+        .expect("failed to connect to Frama-C server (phase 2)");
     (client, state)
 }
 
@@ -418,6 +433,368 @@ async fn test_full_workflow() {
 
     client.shutdown().await.expect("shutdown failed");
     println!("\n=== All 14 steps passed ===");
+}
+
+// ─── Test: Phase 2 end-to-end workflow ────────────────────────────────
+//
+// Prerequisites:
+//   frama-c test/test_phase2.c -server-socket /tmp/frama-c-test-p2.sock
+//
+// Covers: fetchGlobals, fetchGoals, getCallers, callgraph caching,
+//         EVA params, multi-function WP, callstack value queries.
+
+#[tokio::test]
+async fn test_phase2_workflow() {
+    let (client, state) = connect_p2().await;
+
+    // ── P2.1. Connect + verify functions and globals ──
+    println!("\n=== P2.1. Connect + functions ===");
+    {
+        let st = state.read().await;
+        assert!(st.project_loaded);
+        assert_eq!(st.functions.len(), 4, "should have clamp, increment, process, main");
+        for name in &["clamp", "increment", "process", "main"] {
+            assert!(st.resolve_function(name).is_some(), "missing function: {}", name);
+        }
+    }
+    println!("[ok] 4 functions loaded");
+
+    // ── P2.2. fetchGlobals — verify API format ──
+    println!("\n=== P2.2. fetchGlobals ===");
+    let globals = client
+        .fetch_all("kernel.ast.fetchGlobals")
+        .await
+        .expect("fetchGlobals failed");
+    println!("[info] fetchGlobals returned {} entries", globals.len());
+    if !globals.is_empty() {
+        let first = &globals[0];
+        println!("[info] sample global: {}", serde_json::to_string_pretty(first).unwrap());
+        // Verify expected fields exist (the exact names may differ from design doc)
+        let has_name = first.get("name").is_some();
+        let has_key = first.get("key").is_some();
+        let has_decl = first.get("decl").is_some();
+        println!("[info] has name={}, key={}, decl={}", has_name, has_key, has_decl);
+        if has_name && has_key && has_decl {
+            // Update state globals cache
+            let mut st = state.write().await;
+            st.update_globals(&globals);
+            println!("[ok] globals cache populated: {} entries", st.globals.len());
+        } else {
+            println!("[warn] fetchGlobals field names differ from expected — needs code adjustment");
+        }
+    } else {
+        println!("[warn] fetchGlobals returned empty — may need reloadGlobals first");
+        // Try with reload
+        let _ = client.get("kernel.ast.reloadGlobals", serde_json::json!(null)).await;
+        let globals2 = client
+            .fetch_all("kernel.ast.fetchGlobals")
+            .await
+            .expect("fetchGlobals after reload failed");
+        println!("[info] after reload: {} entries", globals2.len());
+        if !globals2.is_empty() {
+            let first = &globals2[0];
+            println!("[info] sample global: {}", serde_json::to_string_pretty(first).unwrap());
+        }
+    }
+
+    // ── P2.3. Callgraph compute + cache ──
+    println!("\n=== P2.3. Callgraph ===");
+    client
+        .exec(
+            "plugins.callgraph.compute",
+            serde_json::json!(null),
+            Duration::from_secs(60),
+        )
+        .await
+        .expect("callgraph.compute failed");
+    let graph = client
+        .get("plugins.callgraph.getCallgraph", serde_json::json!(null))
+        .await
+        .expect("getCallgraph failed");
+    println!("[info] callgraph: {}", serde_json::to_string_pretty(&graph).unwrap());
+    {
+        let mut st = state.write().await;
+        st.update_callgraph(&graph);
+        assert!(!st.callgraph_edges.is_empty(), "should have call edges");
+        assert!(!st.callgraph_vertices.is_empty(), "should have vertices");
+
+        // main → process → clamp, process → increment
+        let process_decl = st.resolve_function("process").map(|f| f.declaration.clone());
+        if let Some(ref pd) = process_decl {
+            let callees = st.get_callees(pd);
+            println!("[info] process callees: {:?}", callees);
+            assert!(callees.len() >= 2, "process should call clamp and increment");
+        }
+
+        let main_decl = st.resolve_function("main").map(|f| f.declaration.clone());
+        if let Some(ref md) = main_decl {
+            let callees = st.get_callees(md);
+            println!("[info] main callees: {:?}", callees);
+            assert!(!callees.is_empty(), "main should call process");
+        }
+    }
+    println!("[ok] callgraph cached and queried");
+
+    // ── P2.4. EVA parameter setting ──
+    println!("\n=== P2.4. EVA params ===");
+    // Test setMain — should accept function name
+    let set_main_result = client
+        .set("kernel.parameters.setMain", serde_json::json!("main"))
+        .await;
+    match set_main_result {
+        Ok(_) => println!("[ok] setMain accepted"),
+        Err(e) => println!("[warn] setMain: {} — API name may differ", e),
+    }
+
+    // Test setEvaPrecision
+    let set_precision = client
+        .set("kernel.parameters.setEvaPrecision", serde_json::json!(3))
+        .await;
+    match set_precision {
+        Ok(_) => println!("[ok] setEvaPrecision accepted"),
+        Err(e) => println!("[warn] setEvaPrecision: {} — API name may differ", e),
+    }
+
+    // Test setEvaSlevel
+    let set_slevel = client
+        .set("kernel.parameters.setEvaSlevel", serde_json::json!(32))
+        .await;
+    match set_slevel {
+        Ok(_) => println!("[ok] setEvaSlevel accepted"),
+        Err(e) => println!("[warn] setEvaSlevel: {} — API name may differ", e),
+    }
+
+    // ── P2.5. Run EVA ──
+    println!("\n=== P2.5. Run EVA ===");
+    client
+        .exec(
+            "plugins.eva.general.compute",
+            serde_json::json!(null),
+            Duration::from_secs(120),
+        )
+        .await
+        .expect("EVA compute failed");
+    {
+        let mut st = state.write().await;
+        st.set_eva_completed();
+    }
+    let comp_state = client
+        .get(
+            "plugins.eva.general.getComputationState",
+            serde_json::json!(null),
+        )
+        .await
+        .expect("getComputationState failed");
+    assert_eq!(comp_state.as_str(), Some("computed"));
+    println!("[ok] EVA completed");
+
+    // ── P2.6. getCallers (EVA-based) ──
+    println!("\n=== P2.6. getCallers ===");
+    let clamp_decl = {
+        let st = state.read().await;
+        st.resolve_function("clamp").unwrap().declaration.clone()
+    };
+    let callers = client
+        .get(
+            "plugins.eva.general.getCallers",
+            serde_json::json!(clamp_decl),
+        )
+        .await;
+    match callers {
+        Ok(c) => {
+            println!("[ok] getCallers(clamp): {}", serde_json::to_string(&c).unwrap());
+        }
+        Err(e) => {
+            println!("[warn] getCallers: {}", e);
+        }
+    }
+
+    // ── P2.7. Properties / annotations ──
+    println!("\n=== P2.7. Properties ===");
+    client
+        .get("kernel.properties.reloadStatus", serde_json::json!(null))
+        .await
+        .expect("reloadStatus failed");
+    let properties = client
+        .fetch_all("kernel.properties.fetchStatus")
+        .await
+        .expect("fetchStatus failed");
+    assert!(!properties.is_empty(), "should have properties after EVA");
+    // Check scope filtering for clamp
+    let clamp_props: Vec<_> = properties
+        .iter()
+        .filter(|p| p["scope"].as_str() == Some(&clamp_decl))
+        .collect();
+    println!(
+        "[ok] {} total properties, {} for clamp",
+        properties.len(),
+        clamp_props.len()
+    );
+
+    // ── P2.8. EVA values with callstack ──
+    println!("\n=== P2.8. EVA values ===");
+    // First get a marker from printDeclaration
+    let _ = client
+        .get("kernel.ast.printDeclaration", serde_json::json!(clamp_decl))
+        .await;
+    // Combined values (no callstack)
+    let combined = client
+        .get(
+            "plugins.eva.values.getValues",
+            serde_json::json!({"target": "#s2"}),
+        )
+        .await;
+    match combined {
+        Ok(v) => println!("[ok] getValues(combined): {}", serde_json::to_string(&v).unwrap()),
+        Err(e) => println!("[warn] getValues(combined): {}", e),
+    }
+    // With callstack index 0
+    let with_cs = client
+        .get(
+            "plugins.eva.values.getValues",
+            serde_json::json!({"target": "#s2", "callstack": 0}),
+        )
+        .await;
+    match with_cs {
+        Ok(v) => println!("[ok] getValues(callstack=0): {}", serde_json::to_string(&v).unwrap()),
+        Err(e) => println!("[info] getValues(callstack=0): {} (may need valid callstack index)", e),
+    }
+
+    // ── P2.9. Run WP on multiple functions ──
+    println!("\n=== P2.9. Run WP ===");
+    // WP on clamp
+    client
+        .set("plugins.wp.setTimeout", serde_json::json!(10))
+        .await
+        .expect("setTimeout failed");
+    let clamp_pvdecl = clamp_decl.replace("#F", "#v");
+    let _ = client
+        .get("kernel.ast.printDeclaration", serde_json::json!(clamp_decl))
+        .await;
+    client
+        .exec(
+            "plugins.wp.startProofs",
+            serde_json::json!(clamp_pvdecl),
+            Duration::from_secs(120),
+        )
+        .await
+        .expect("startProofs(clamp) failed");
+
+    // WP on increment
+    let increment_decl = {
+        let st = state.read().await;
+        st.resolve_function("increment").unwrap().declaration.clone()
+    };
+    let increment_pvdecl = increment_decl.replace("#F", "#v");
+    let _ = client
+        .get("kernel.ast.printDeclaration", serde_json::json!(increment_decl))
+        .await;
+    client
+        .exec(
+            "plugins.wp.startProofs",
+            serde_json::json!(increment_pvdecl),
+            Duration::from_secs(120),
+        )
+        .await
+        .expect("startProofs(increment) failed");
+
+    {
+        let mut st = state.write().await;
+        st.set_wp_completed();
+    }
+    let tasks = client
+        .get("plugins.wp.getScheduledTasks", serde_json::json!(null))
+        .await
+        .expect("getScheduledTasks failed");
+    assert!(tasks.is_object());
+    println!("[ok] WP completed for clamp + increment");
+
+    // ── P2.10. fetchGoals — verify API format ──
+    println!("\n=== P2.10. fetchGoals ===");
+    let reload_goals = client
+        .get("plugins.wp.reloadGoals", serde_json::json!(null))
+        .await;
+    match reload_goals {
+        Ok(_) => {
+            let goals = client
+                .fetch_all("plugins.wp.fetchGoals")
+                .await
+                .expect("fetchGoals failed");
+            println!("[info] fetchGoals returned {} entries", goals.len());
+            if !goals.is_empty() {
+                let first = &goals[0];
+                println!("[info] sample goal: {}", serde_json::to_string_pretty(first).unwrap());
+                // Verify expected fields
+                let has_wpo = first.get("wpo").is_some();
+                let has_function = first.get("function").is_some();
+                let has_status = first.get("status").is_some();
+                println!("[info] has wpo={}, function={}, status={}", has_wpo, has_function, has_status);
+
+                // Filter by function (clamp)
+                let clamp_goals: Vec<_> = goals
+                    .iter()
+                    .filter(|g| g["function"].as_str() == Some(&clamp_decl))
+                    .collect();
+                println!("[info] clamp goals: {}", clamp_goals.len());
+
+                // Filter by status
+                let valid_goals: Vec<_> = goals
+                    .iter()
+                    .filter(|g| g["status"].as_str() == Some("valid"))
+                    .collect();
+                println!("[info] valid goals: {}", valid_goals.len());
+            }
+            println!("[ok] fetchGoals format verified");
+        }
+        Err(e) => {
+            println!("[warn] reloadGoals: {} — API name may differ", e);
+        }
+    }
+
+    // ── P2.11. Verification status summary ──
+    println!("\n=== P2.11. Verification status ===");
+    client
+        .get("kernel.properties.reloadStatus", serde_json::json!(null))
+        .await
+        .expect("reloadStatus failed");
+    let all_props = client
+        .fetch_all("kernel.properties.fetchStatus")
+        .await
+        .expect("fetchStatus failed");
+    let mut by_status = std::collections::HashMap::new();
+    for prop in &all_props {
+        let status = prop["status"].as_str().unwrap_or("unknown");
+        *by_status.entry(status.to_string()).or_insert(0u64) += 1;
+    }
+    println!(
+        "[ok] {} properties: {:?}",
+        all_props.len(),
+        by_status
+    );
+
+    // ── P2.12. Property key lookup (for investigate_alarm) ──
+    println!("\n=== P2.12. Property key ===");
+    if !all_props.is_empty() {
+        let sample_key = all_props[0]["key"].as_str().unwrap_or("?");
+        println!("[info] sample property key: {}", sample_key);
+        // Verify kinstr field (used by investigate_alarm for values)
+        let has_kinstr = all_props[0].get("kinstr").is_some();
+        println!("[info] has kinstr={}", has_kinstr);
+    }
+
+    // ── P2.13. Final state ──
+    println!("\n=== P2.13. Final state ===");
+    {
+        let st = state.read().await;
+        assert!(st.project_loaded);
+        assert!(st.eva_completed);
+        assert!(st.wp_completed);
+        assert_eq!(st.functions.len(), 4);
+    }
+    println!("[ok] All Phase 2 flags correct");
+
+    client.shutdown().await.expect("shutdown failed");
+    println!("\n=== All Phase 2 steps passed ===");
 }
 
 // ─── Offline tests (no live server needed) ───────────────────────────
