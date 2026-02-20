@@ -6,6 +6,10 @@ pub struct SessionState {
     pub eva_completed: bool,
     pub wp_completed: bool,
     pub functions: HashMap<String, FunctionInfo>,
+    // --- Phase 2 ---
+    pub globals: HashMap<String, GlobalInfo>,
+    pub callgraph_edges: Vec<CallEdge>,
+    pub callgraph_vertices: Vec<CallVertex>,
 }
 
 #[derive(Debug, Clone)]
@@ -16,6 +20,29 @@ pub struct FunctionInfo {
     pub signature: String,
     pub file: String,
     pub line: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct GlobalInfo {
+    pub name: String,
+    pub marker: String,       // e.g. "kv#5"
+    pub declaration: String,  // e.g. "#V5"
+    pub typ: String,          // e.g. "int"
+    pub file: String,
+    pub line: u32,
+}
+
+#[derive(Debug, Clone)]
+pub struct CallEdge {
+    pub src: String,   // declaration marker, e.g. "#F36"
+    pub dst: String,   // declaration marker, e.g. "#F24"
+    pub kind: String,  // "both", "calls", "called_by"
+}
+
+#[derive(Debug, Clone)]
+pub struct CallVertex {
+    pub name: String,        // function name
+    pub declaration: String, // declaration marker, e.g. "#F36"
 }
 
 impl SessionState {
@@ -66,11 +93,116 @@ impl SessionState {
         self.functions.get(name)
     }
 
+    /// Populate the globals cache from `fetchGlobals` response entries.
+    ///
+    /// Expected Frama-C Server JSON format (to be verified with live server):
+    /// ```json
+    /// {
+    ///   "name": "global_var",
+    ///   "key": "kv#5",
+    ///   "decl": "#V5",
+    ///   "type": "int",
+    ///   "sloc": { "file": "/path/to/file.c", "line": 3 }
+    /// }
+    /// ```
+    pub fn update_globals(&mut self, entries: &[serde_json::Value]) {
+        self.globals.clear();
+        for entry in entries {
+            let name = entry["name"].as_str().unwrap_or_default().to_string();
+            let marker = entry["key"].as_str().unwrap_or_default().to_string();
+            let declaration = entry["decl"].as_str().unwrap_or_default().to_string();
+            let typ = entry["type"].as_str().unwrap_or_default().to_string();
+            let file = entry["sloc"]["file"].as_str().unwrap_or_default().to_string();
+            let line = entry["sloc"]["line"].as_u64().unwrap_or(0) as u32;
+            if !name.is_empty() {
+                self.globals.insert(
+                    name.clone(),
+                    GlobalInfo {
+                        name,
+                        marker,
+                        declaration,
+                        typ,
+                        file,
+                        line,
+                    },
+                );
+            }
+        }
+    }
+
+    pub fn resolve_global(&self, name: &str) -> Option<&GlobalInfo> {
+        self.globals.get(name)
+    }
+
+    /// Populate callgraph cache from `getCallgraph` response.
+    ///
+    /// Expected format:
+    /// ```json
+    /// {
+    ///   "edges": [{"src": "#F36", "dst": "#F24", "kind": "both"}],
+    ///   "vertices": [{"name": "main", "decl": "#F36"}, ...]
+    /// }
+    /// ```
+    pub fn update_callgraph(&mut self, graph: &serde_json::Value) {
+        self.callgraph_edges.clear();
+        self.callgraph_vertices.clear();
+
+        if let Some(edges) = graph.get("edges").and_then(|v| v.as_array()) {
+            for edge in edges {
+                let src = edge["src"].as_str().unwrap_or_default().to_string();
+                let dst = edge["dst"].as_str().unwrap_or_default().to_string();
+                let kind = edge["kind"].as_str().unwrap_or_default().to_string();
+                if !src.is_empty() && !dst.is_empty() {
+                    self.callgraph_edges.push(CallEdge { src, dst, kind });
+                }
+            }
+        }
+
+        if let Some(vertices) = graph.get("vertices").and_then(|v| v.as_array()) {
+            for vertex in vertices {
+                let name = vertex["name"].as_str().unwrap_or_default().to_string();
+                let declaration = vertex["decl"].as_str().unwrap_or_default().to_string();
+                if !name.is_empty() {
+                    self.callgraph_vertices.push(CallVertex { name, declaration });
+                }
+            }
+        }
+    }
+
+    /// Find all callers of a function by its declaration marker.
+    pub fn get_callers(&self, decl_marker: &str) -> Vec<&str> {
+        self.callgraph_edges
+            .iter()
+            .filter(|e| e.dst == decl_marker && (e.kind == "both" || e.kind == "calls"))
+            .map(|e| e.src.as_str())
+            .collect()
+    }
+
+    /// Find all callees of a function by its declaration marker.
+    pub fn get_callees(&self, decl_marker: &str) -> Vec<&str> {
+        self.callgraph_edges
+            .iter()
+            .filter(|e| e.src == decl_marker && (e.kind == "both" || e.kind == "calls"))
+            .map(|e| e.dst.as_str())
+            .collect()
+    }
+
+    /// Resolve a declaration marker to a function name using callgraph vertices.
+    pub fn resolve_decl_to_name(&self, decl_marker: &str) -> Option<&str> {
+        self.callgraph_vertices
+            .iter()
+            .find(|v| v.declaration == decl_marker)
+            .map(|v| v.name.as_str())
+    }
+
     pub fn invalidate_all(&mut self) {
         self.project_loaded = false;
         self.eva_completed = false;
         self.wp_completed = false;
         self.functions.clear();
+        self.globals.clear();
+        self.callgraph_edges.clear();
+        self.callgraph_vertices.clear();
     }
 
     pub fn set_eva_completed(&mut self) {
@@ -135,11 +267,34 @@ mod tests {
                 line: 1,
             },
         );
+        state.globals.insert(
+            "g".into(),
+            GlobalInfo {
+                name: "g".into(),
+                marker: "kv#1".into(),
+                declaration: "#V1".into(),
+                typ: "int".into(),
+                file: "a.c".into(),
+                line: 1,
+            },
+        );
+        state.callgraph_edges.push(CallEdge {
+            src: "#F1".into(),
+            dst: "#F2".into(),
+            kind: "both".into(),
+        });
+        state.callgraph_vertices.push(CallVertex {
+            name: "f".into(),
+            declaration: "#F1".into(),
+        });
         state.invalidate_all();
         assert!(!state.project_loaded);
         assert!(!state.eva_completed);
         assert!(!state.wp_completed);
         assert!(state.functions.is_empty());
+        assert!(state.globals.is_empty());
+        assert!(state.callgraph_edges.is_empty());
+        assert!(state.callgraph_vertices.is_empty());
     }
 
     #[test]
@@ -160,5 +315,92 @@ mod tests {
         assert!(state.eva_completed);
         state.set_wp_completed();
         assert!(state.wp_completed);
+    }
+
+    #[test]
+    fn update_and_resolve_globals() {
+        let mut state = SessionState::default();
+        let entries = vec![serde_json::json!({
+            "name": "counter",
+            "key": "kv#5",
+            "decl": "#V5",
+            "type": "int",
+            "sloc": {
+                "file": "/tmp/test.c",
+                "line": 3
+            }
+        })];
+        state.update_globals(&entries);
+        assert_eq!(state.globals.len(), 1);
+        let info = state.resolve_global("counter").unwrap();
+        assert_eq!(info.marker, "kv#5");
+        assert_eq!(info.declaration, "#V5");
+        assert_eq!(info.typ, "int");
+        assert_eq!(info.file, "/tmp/test.c");
+        assert_eq!(info.line, 3);
+    }
+
+    #[test]
+    fn resolve_global_missing() {
+        let state = SessionState::default();
+        assert!(state.resolve_global("nonexistent").is_none());
+    }
+
+    #[test]
+    fn skip_empty_global_name() {
+        let mut state = SessionState::default();
+        let entries = vec![serde_json::json!({
+            "name": "",
+            "key": "kv#1",
+            "decl": "#V1",
+            "type": "int"
+        })];
+        state.update_globals(&entries);
+        assert!(state.globals.is_empty());
+    }
+
+    #[test]
+    fn update_callgraph_and_query() {
+        let mut state = SessionState::default();
+        let graph = serde_json::json!({
+            "edges": [
+                {"src": "#F36", "dst": "#F24", "kind": "both"},
+                {"src": "#F36", "dst": "#F10", "kind": "calls"},
+                {"src": "#F10", "dst": "#F24", "kind": "calls"}
+            ],
+            "vertices": [
+                {"name": "main", "decl": "#F36"},
+                {"name": "abs_val", "decl": "#F24"},
+                {"name": "helper", "decl": "#F10"}
+            ]
+        });
+        state.update_callgraph(&graph);
+
+        assert_eq!(state.callgraph_edges.len(), 3);
+        assert_eq!(state.callgraph_vertices.len(), 3);
+
+        // main calls abs_val and helper
+        let callees = state.get_callees("#F36");
+        assert_eq!(callees.len(), 2);
+        assert!(callees.contains(&"#F24"));
+        assert!(callees.contains(&"#F10"));
+
+        // abs_val is called by main and helper
+        let callers = state.get_callers("#F24");
+        assert_eq!(callers.len(), 2);
+        assert!(callers.contains(&"#F36"));
+        assert!(callers.contains(&"#F10"));
+
+        // resolve decl to name
+        assert_eq!(state.resolve_decl_to_name("#F36"), Some("main"));
+        assert_eq!(state.resolve_decl_to_name("#F24"), Some("abs_val"));
+        assert_eq!(state.resolve_decl_to_name("#F99"), None);
+    }
+
+    #[test]
+    fn callgraph_empty_edges() {
+        let state = SessionState::default();
+        assert!(state.get_callers("#F1").is_empty());
+        assert!(state.get_callees("#F1").is_empty());
     }
 }

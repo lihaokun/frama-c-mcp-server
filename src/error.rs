@@ -32,6 +32,12 @@ pub enum FramaCError {
 
     #[error("Function not found: {0}")]
     FunctionNotFound(String),
+
+    #[error("Global variable not found: {0}")]
+    GlobalNotFound(String),
+
+    #[error("Symbol not found: {0}")]
+    SymbolNotFound(String),
 }
 
 impl From<FramaCError> for McpError {
@@ -64,6 +70,18 @@ impl From<FramaCError> for McpError {
             FramaCError::FunctionNotFound(name) => {
                 McpError::invalid_params(
                     Cow::Owned(format!("function not found: {name}")),
+                    None,
+                )
+            }
+            FramaCError::GlobalNotFound(name) => {
+                McpError::invalid_params(
+                    Cow::Owned(format!("global variable not found: {name}")),
+                    None,
+                )
+            }
+            FramaCError::SymbolNotFound(name) => {
+                McpError::invalid_params(
+                    Cow::Owned(format!("symbol not found: {name}")),
                     None,
                 )
             }
