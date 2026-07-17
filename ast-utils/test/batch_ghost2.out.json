@@ -1,0 +1,218 @@
+[
+  {
+    "id": "g1",
+    "data": {
+      "name": "sum_old_ghost",
+      "signature": "int sum_old_ghost(int *a, int n)",
+      "formals": [
+        { "name": "a", "type": "int *", "vid": 179 },
+        { "name": "n", "type": "int", "vid": 180 }
+      ],
+      "locals": [
+        { "name": "s", "type": "int", "vid": 181 },
+        { "name": "gs", "type": "int \\ghost", "vid": 182 },
+        { "name": "i", "type": "int", "vid": 183 }
+      ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 195,
+          "pred_sids": [],
+          "succ_sids": [ 196 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "int s = 0;" }
+        },
+        {
+          "sid": 196,
+          "pred_sids": [ 195 ],
+          "succ_sids": [ 197 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "int \\ghost gs = 0;" }
+        },
+        {
+          "sid": 197,
+          "pred_sids": [ 196 ],
+          "succ_sids": [ 198 ],
+          "kind": "block",
+          "stmts": [
+            {
+              "sid": 198,
+              "pred_sids": [ 197 ],
+              "succ_sids": [ 199 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "int i = 0;" }
+            },
+            {
+              "sid": 199,
+              "pred_sids": [ 206, 198 ],
+              "succ_sids": [ 201 ],
+              "kind": "loop",
+              "body": [
+                {
+                  "sid": 201,
+                  "pred_sids": [ 199 ],
+                  "succ_sids": [ 203, 202 ],
+                  "kind": "if",
+                  "cond": "i < n",
+                  "then_body": [],
+                  "else_body": [
+                    {
+                      "sid": 202,
+                      "pred_sids": [ 201 ],
+                      "succ_sids": [ 207 ],
+                      "kind": "break"
+                    }
+                  ]
+                },
+                {
+                  "sid": 203,
+                  "pred_sids": [ 201 ],
+                  "succ_sids": [ 204 ],
+                  "kind": "block",
+                  "stmts": [
+                    {
+                      "sid": 204,
+                      "pred_sids": [ 203 ],
+                      "succ_sids": [ 205 ],
+                      "kind": "instr",
+                      "instr": { "kind": "set", "code": "s += *(a + i);" }
+                    },
+                    {
+                      "sid": 205,
+                      "pred_sids": [ 204 ],
+                      "succ_sids": [ 206 ],
+                      "kind": "instr",
+                      "instr": { "kind": "set", "code": "gs += *(a + i);" }
+                    }
+                  ]
+                },
+                {
+                  "sid": 206,
+                  "pred_sids": [ 205 ],
+                  "succ_sids": [ 199 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "i ++;" }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sid": 207,
+          "pred_sids": [ 202 ],
+          "succ_sids": [ 209 ],
+          "annotations": [ "assert s ≡ gs;" ],
+          "kind": "skip"
+        },
+        {
+          "sid": 209,
+          "pred_sids": [ 207 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "s"
+        }
+      ]
+    }
+  },
+  {
+    "id": "g2",
+    "data": {
+      "name": "sum_attr_ghost",
+      "signature": "int sum_attr_ghost(int *a, int n)",
+      "formals": [
+        { "name": "a", "type": "int *", "vid": 187 },
+        { "name": "n", "type": "int", "vid": 188 }
+      ],
+      "locals": [
+        { "name": "s", "type": "int", "vid": 189 },
+        { "name": "gs2", "type": "int \\ghost", "vid": 190 },
+        { "name": "i", "type": "int", "vid": 191 }
+      ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 211,
+          "pred_sids": [],
+          "succ_sids": [ 212 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "int s = 0;" }
+        },
+        {
+          "sid": 212,
+          "pred_sids": [ 211 ],
+          "succ_sids": [ 213 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "int \\ghost gs2 = 0;" }
+        },
+        {
+          "sid": 213,
+          "pred_sids": [ 212 ],
+          "succ_sids": [ 214 ],
+          "kind": "block",
+          "stmts": [
+            {
+              "sid": 214,
+              "pred_sids": [ 213 ],
+              "succ_sids": [ 215 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "int i = 0;" }
+            },
+            {
+              "sid": 215,
+              "pred_sids": [ 221, 214 ],
+              "succ_sids": [ 217 ],
+              "kind": "loop",
+              "body": [
+                {
+                  "sid": 217,
+                  "pred_sids": [ 215 ],
+                  "succ_sids": [ 219, 218 ],
+                  "kind": "if",
+                  "cond": "i < n",
+                  "then_body": [],
+                  "else_body": [
+                    {
+                      "sid": 218,
+                      "pred_sids": [ 217 ],
+                      "succ_sids": [ 223 ],
+                      "kind": "break"
+                    }
+                  ]
+                },
+                {
+                  "sid": 219,
+                  "pred_sids": [ 217 ],
+                  "succ_sids": [ 220 ],
+                  "kind": "block",
+                  "stmts": [
+                    {
+                      "sid": 220,
+                      "pred_sids": [ 219 ],
+                      "succ_sids": [ 221 ],
+                      "kind": "instr",
+                      "instr": { "kind": "set", "code": "s += *(a + i);" }
+                    }
+                  ]
+                },
+                {
+                  "sid": 221,
+                  "pred_sids": [ 220 ],
+                  "succ_sids": [ 215 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "i ++;" }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sid": 223,
+          "pred_sids": [ 218 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "s"
+        }
+      ]
+    }
+  }
+]

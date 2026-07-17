@@ -1,0 +1,233 @@
+[
+  {
+    "id": "v_ghost_var",
+    "data": { "result": { "error": "statement 23 not found" } }
+  },
+  {
+    "id": "v_ghost_block",
+    "data": { "result": { "error": "statement 23 not found" } }
+  },
+  {
+    "id": "v_ghost_assigns",
+    "data": { "result": { "valid": true, "error": null } }
+  },
+  {
+    "id": "add_ghost",
+    "data": { "result": { "error": "statement 23 not found" } }
+  },
+  {
+    "id": "check_ghost",
+    "data": {
+      "name": "test_all_stmts",
+      "signature": "int test_all_stmts(int n, int mode)",
+      "formals": [
+        { "name": "n", "type": "int", "vid": 81 },
+        { "name": "mode", "type": "int", "vid": 82 }
+      ],
+      "locals": [
+        { "name": "result", "type": "int", "vid": 87 },
+        { "name": "i", "type": "int", "vid": 88 }
+      ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 42,
+          "pred_sids": [],
+          "succ_sids": [ 44 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "int result = 0;" }
+        },
+        {
+          "sid": 44,
+          "pred_sids": [ 42 ],
+          "succ_sids": [ 46, 49 ],
+          "kind": "if",
+          "cond": "n > 0",
+          "then_body": [
+            {
+              "sid": 46,
+              "pred_sids": [ 44 ],
+              "succ_sids": [ 47, 48 ],
+              "kind": "if",
+              "cond": "mode == 1",
+              "then_body": [
+                {
+                  "sid": 47,
+                  "pred_sids": [ 46 ],
+                  "succ_sids": [ 50 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "result = 1;" }
+                }
+              ],
+              "else_body": [
+                {
+                  "sid": 48,
+                  "pred_sids": [ 46 ],
+                  "succ_sids": [ 50 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "result = 2;" }
+                }
+              ]
+            }
+          ],
+          "else_body": [
+            {
+              "sid": 49,
+              "pred_sids": [ 44 ],
+              "succ_sids": [ 50 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "result = -1;" }
+            }
+          ]
+        },
+        {
+          "sid": 50,
+          "pred_sids": [ 49, 48, 47 ],
+          "succ_sids": [ 51 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "i = 0;" }
+        },
+        {
+          "sid": 51,
+          "pred_sids": [ 62, 59, 50 ],
+          "succ_sids": [ 53 ],
+          "kind": "loop",
+          "body": [
+            {
+              "sid": 53,
+              "pred_sids": [ 51 ],
+              "succ_sids": [ 54, 57 ],
+              "kind": "if",
+              "cond": "i >= n",
+              "then_body": [
+                {
+                  "sid": 54,
+                  "pred_sids": [ 53 ],
+                  "succ_sids": [ 64 ],
+                  "kind": "break"
+                }
+              ],
+              "else_body": []
+            },
+            {
+              "sid": 57,
+              "pred_sids": [ 53 ],
+              "succ_sids": [ 58, 61 ],
+              "kind": "if",
+              "cond": "i % 2 == 0",
+              "then_body": [
+                {
+                  "sid": 58,
+                  "pred_sids": [ 57 ],
+                  "succ_sids": [ 59 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "i ++;" }
+                },
+                {
+                  "sid": 59,
+                  "pred_sids": [ 58 ],
+                  "succ_sids": [ 51 ],
+                  "kind": "continue"
+                }
+              ],
+              "else_body": []
+            },
+            {
+              "sid": 61,
+              "pred_sids": [ 57 ],
+              "succ_sids": [ 62 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "result += i;" }
+            },
+            {
+              "sid": 62,
+              "pred_sids": [ 61 ],
+              "succ_sids": [ 51 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "i ++;" }
+            }
+          ]
+        },
+        {
+          "sid": 64,
+          "pred_sids": [ 54 ],
+          "succ_sids": [ 65, 67, 69 ],
+          "kind": "switch",
+          "expr": "mode",
+          "cases": [
+            { "sid": 65, "values": [ "0" ] },
+            { "sid": 67, "values": [ "1", "2" ] },
+            { "sid": 69, "default": true }
+          ]
+        },
+        {
+          "sid": 70,
+          "pred_sids": [ 68, 66 ],
+          "succ_sids": [ 71 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "i = 0;" }
+        },
+        {
+          "sid": 71,
+          "pred_sids": [ 77, 70 ],
+          "succ_sids": [ 73 ],
+          "kind": "loop",
+          "body": [
+            {
+              "sid": 73,
+              "pred_sids": [ 71 ],
+              "succ_sids": [ 75, 74 ],
+              "kind": "if",
+              "cond": "i < 5",
+              "then_body": [],
+              "else_body": [
+                {
+                  "sid": 74,
+                  "pred_sids": [ 73 ],
+                  "succ_sids": [ 78 ],
+                  "kind": "break"
+                }
+              ]
+            },
+            {
+              "sid": 75,
+              "pred_sids": [ 73 ],
+              "succ_sids": [ 76 ],
+              "kind": "block",
+              "stmts": [
+                {
+                  "sid": 76,
+                  "pred_sids": [ 75 ],
+                  "succ_sids": [ 77 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "result += i;" }
+                }
+              ]
+            },
+            {
+              "sid": 77,
+              "pred_sids": [ 76 ],
+              "succ_sids": [ 71 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "i ++;" }
+            }
+          ]
+        },
+        {
+          "sid": 78,
+          "pred_sids": [ 74, 69 ],
+          "succ_sids": [ 79 ],
+          "labels": [ { "label": "done" } ],
+          "kind": "skip"
+        },
+        {
+          "sid": 79,
+          "pred_sids": [ 78 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "result"
+        }
+      ]
+    }
+  }
+]

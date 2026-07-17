@@ -1,0 +1,50 @@
+[
+  { "id": "v1", "data": { "result": { "valid": true, "error": null } } },
+  {
+    "id": "v2",
+    "data": {
+      "result": {
+        "valid": false,
+        "error": "ACSL syntax error in function contract"
+      }
+    }
+  },
+  { "id": "a1", "data": { "result": { "success": true, "error": null } } },
+  {
+    "id": "check",
+    "data": {
+      "name": "abs_val",
+      "signature": "int abs_val(int x)",
+      "formals": [ { "name": "x", "type": "int", "vid": 26 } ],
+      "locals": [],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 2,
+          "pred_sids": [],
+          "succ_sids": [ 3, 6 ],
+          "kind": "if",
+          "cond": "x < 0",
+          "then_body": [
+            {
+              "sid": 3,
+              "pred_sids": [ 2 ],
+              "succ_sids": [ 6 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "x = - x;" }
+            }
+          ],
+          "else_body": []
+        },
+        {
+          "sid": 6,
+          "pred_sids": [ 3, 2 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "x"
+        }
+      ]
+    }
+  },
+  { "id": "rm1", "data": { "success": true, "removed_count": 1 } }
+]

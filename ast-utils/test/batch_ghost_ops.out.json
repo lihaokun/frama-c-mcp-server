@@ -1,0 +1,240 @@
+[
+  {
+    "id": "g_decl",
+    "data": { "result": { "error": "statement 2 not found" } }
+  },
+  {
+    "id": "g_check1",
+    "data": {
+      "name": "add",
+      "signature": "int add(int a, int b)",
+      "formals": [
+        { "name": "a", "type": "int", "vid": 56 },
+        { "name": "b", "type": "int", "vid": 57 }
+      ],
+      "locals": [ { "name": "__retres", "type": "int", "vid": 193 } ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 21,
+          "pred_sids": [],
+          "succ_sids": [ 227 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "__retres = a + b;" }
+        },
+        {
+          "sid": 227,
+          "pred_sids": [ 21 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  },
+  {
+    "id": "g_assign",
+    "data": { "result": { "error": "statement 176 not found" } }
+  },
+  {
+    "id": "g_check2",
+    "data": {
+      "name": "add",
+      "signature": "int add(int a, int b)",
+      "formals": [
+        { "name": "a", "type": "int", "vid": 56 },
+        { "name": "b", "type": "int", "vid": 57 }
+      ],
+      "locals": [ { "name": "__retres", "type": "int", "vid": 193 } ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 21,
+          "pred_sids": [],
+          "succ_sids": [ 227 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "__retres = a + b;" }
+        },
+        {
+          "sid": 227,
+          "pred_sids": [ 21 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  },
+  {
+    "id": "g_decl_dup",
+    "data": { "result": { "error": "statement 2 not found" } }
+  },
+  {
+    "id": "g_decl_bad_type",
+    "data": { "result": { "error": "statement 2 not found" } }
+  },
+  {
+    "id": "g_decl_bad_expr",
+    "data": { "result": { "error": "statement 2 not found" } }
+  },
+  {
+    "id": "g_set_nonexist",
+    "data": { "result": { "error": "statement 2 not found" } }
+  },
+  {
+    "id": "g_bad_op",
+    "data": { "result": { "error": "statement 2 not found" } }
+  },
+  {
+    "id": "g_rm_var",
+    "data": {
+      "result": {
+        "success": false,
+        "removed_count": 0,
+        "error": "ghost variable 'gs' not tracked"
+      }
+    }
+  },
+  {
+    "id": "g_check3",
+    "data": {
+      "name": "add",
+      "signature": "int add(int a, int b)",
+      "formals": [
+        { "name": "a", "type": "int", "vid": 56 },
+        { "name": "b", "type": "int", "vid": 57 }
+      ],
+      "locals": [ { "name": "__retres", "type": "int", "vid": 193 } ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 21,
+          "pred_sids": [],
+          "succ_sids": [ 227 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "__retres = a + b;" }
+        },
+        {
+          "sid": 227,
+          "pred_sids": [ 21 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  },
+  {
+    "id": "g_rm_notrack",
+    "data": {
+      "result": {
+        "success": false,
+        "removed_count": 0,
+        "error": "ghost variable 'gs' not tracked"
+      }
+    }
+  },
+  {
+    "id": "g_decl2",
+    "data": { "result": { "error": "statement 11 not found" } }
+  },
+  {
+    "id": "g_set2",
+    "data": { "result": { "error": "statement 11 not found" } }
+  },
+  {
+    "id": "g_check4",
+    "data": {
+      "name": "clamp",
+      "signature": "int clamp(int val, int lo, int hi)",
+      "formals": [
+        { "name": "val", "type": "int", "vid": 75 },
+        { "name": "lo", "type": "int", "vid": 76 },
+        { "name": "hi", "type": "int", "vid": 77 }
+      ],
+      "locals": [ { "name": "__retres", "type": "int", "vid": 195 } ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 30,
+          "pred_sids": [],
+          "succ_sids": [ 232, 35 ],
+          "kind": "if",
+          "cond": "val < lo",
+          "then_body": [
+            {
+              "sid": 232,
+              "pred_sids": [ 30 ],
+              "succ_sids": [ 32 ],
+              "kind": "block",
+              "stmts": [
+                {
+                  "sid": 32,
+                  "pred_sids": [ 232 ],
+                  "succ_sids": [ 233 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "__retres = lo;" }
+                },
+                {
+                  "sid": 233,
+                  "pred_sids": [ 32 ],
+                  "succ_sids": [ 236 ],
+                  "kind": "goto",
+                  "target_sid": 236
+                }
+              ]
+            }
+          ],
+          "else_body": []
+        },
+        {
+          "sid": 35,
+          "pred_sids": [ 30 ],
+          "succ_sids": [ 234, 40 ],
+          "kind": "if",
+          "cond": "val > hi",
+          "then_body": [
+            {
+              "sid": 234,
+              "pred_sids": [ 35 ],
+              "succ_sids": [ 37 ],
+              "kind": "block",
+              "stmts": [
+                {
+                  "sid": 37,
+                  "pred_sids": [ 234 ],
+                  "succ_sids": [ 235 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "__retres = hi;" }
+                },
+                {
+                  "sid": 235,
+                  "pred_sids": [ 37 ],
+                  "succ_sids": [ 236 ],
+                  "kind": "goto",
+                  "target_sid": 236
+                }
+              ]
+            }
+          ],
+          "else_body": []
+        },
+        {
+          "sid": 40,
+          "pred_sids": [ 35 ],
+          "succ_sids": [ 236 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "__retres = val;" }
+        },
+        {
+          "sid": 236,
+          "pred_sids": [ 40, 235, 233 ],
+          "succ_sids": [],
+          "labels": [ { "label": "return_label" } ],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  }
+]

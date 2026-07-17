@@ -1,0 +1,120 @@
+[
+  {
+    "id": "r1",
+    "data": {
+      "name": "abs_val",
+      "signature": "int abs_val(int x)",
+      "formals": [ { "name": "x", "type": "int", "vid": 26 } ],
+      "locals": [],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 2,
+          "pred_sids": [],
+          "succ_sids": [ 3, 6 ],
+          "kind": "if",
+          "cond": "x < 0",
+          "then_body": [
+            {
+              "sid": 3,
+              "pred_sids": [ 2 ],
+              "succ_sids": [ 6 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "x = - x;" }
+            }
+          ],
+          "else_body": []
+        },
+        {
+          "sid": 6,
+          "pred_sids": [ 3, 2 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "x"
+        }
+      ]
+    }
+  },
+  {
+    "id": "r2",
+    "data": {
+      "name": "sum",
+      "signature": "int sum(int n)",
+      "formals": [ { "name": "n", "type": "int", "vid": 29 } ],
+      "locals": [
+        { "name": "s", "type": "int", "vid": 30 },
+        { "name": "i", "type": "int", "vid": 31 }
+      ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 8,
+          "pred_sids": [],
+          "succ_sids": [ 9 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "int s = 0;" }
+        },
+        {
+          "sid": 9,
+          "pred_sids": [ 8 ],
+          "succ_sids": [ 10 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "int i = 0;" }
+        },
+        {
+          "sid": 10,
+          "pred_sids": [ 16, 9 ],
+          "succ_sids": [ 12 ],
+          "kind": "loop",
+          "body": [
+            {
+              "sid": 12,
+              "pred_sids": [ 10 ],
+              "succ_sids": [ 14, 13 ],
+              "kind": "if",
+              "cond": "i < n",
+              "then_body": [],
+              "else_body": [
+                {
+                  "sid": 13,
+                  "pred_sids": [ 12 ],
+                  "succ_sids": [ 18 ],
+                  "kind": "break"
+                }
+              ]
+            },
+            {
+              "sid": 14,
+              "pred_sids": [ 12 ],
+              "succ_sids": [ 15 ],
+              "kind": "block",
+              "stmts": [
+                {
+                  "sid": 15,
+                  "pred_sids": [ 14 ],
+                  "succ_sids": [ 16 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "s += i;" }
+                },
+                {
+                  "sid": 16,
+                  "pred_sids": [ 15 ],
+                  "succ_sids": [ 10 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "i ++;" }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sid": 18,
+          "pred_sids": [ 13 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "s"
+        }
+      ]
+    }
+  }
+]

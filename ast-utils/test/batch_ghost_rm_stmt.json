@@ -1,0 +1,25 @@
+[
+  {"kind":"EXEC","id":"setup_decl","request":"plugins.ast-utils.execInsertGhostStmt",
+   "data":{"function":"add","stmt":2,"op":"decl","name":"gs","type":"int","expr":"0"}},
+
+  {"kind":"EXEC","id":"setup_set1","request":"plugins.ast-utils.execInsertGhostStmt",
+   "data":{"function":"add","stmt":176,"op":"set","name":"gs","expr":"a + 1"}},
+
+  {"kind":"EXEC","id":"setup_set2","request":"plugins.ast-utils.execInsertGhostStmt",
+   "data":{"function":"add","stmt":176,"op":"set","name":"gs","expr":"b + 2"}},
+
+  {"kind":"GET","id":"before","request":"plugins.ast-utils.getFunctionAst","data":"add"},
+
+  {"kind":"EXEC","id":"rm_bad_sid","request":"plugins.ast-utils.execRemoveGhostStmt",
+   "data":{"function":"add","sid":99999}},
+
+  {"kind":"EXEC","id":"rm_assign","request":"plugins.ast-utils.execRemoveGhostStmt",
+   "data":{"function":"add","sid":379}},
+
+  {"kind":"GET","id":"after_rm1","request":"plugins.ast-utils.getFunctionAst","data":"add"},
+
+  {"kind":"EXEC","id":"rm_decl_cascade","request":"plugins.ast-utils.execRemoveGhostStmt",
+   "data":{"function":"add","sid":375}},
+
+  {"kind":"GET","id":"after_rm2","request":"plugins.ast-utils.getFunctionAst","data":"add"}
+]

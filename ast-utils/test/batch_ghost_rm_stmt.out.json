@@ -1,0 +1,128 @@
+[
+  {
+    "id": "setup_decl",
+    "data": { "result": { "error": "statement 2 not found" } }
+  },
+  {
+    "id": "setup_set1",
+    "data": { "result": { "error": "statement 176 not found" } }
+  },
+  {
+    "id": "setup_set2",
+    "data": { "result": { "error": "statement 176 not found" } }
+  },
+  {
+    "id": "before",
+    "data": {
+      "name": "add",
+      "signature": "int add(int a, int b)",
+      "formals": [
+        { "name": "a", "type": "int", "vid": 56 },
+        { "name": "b", "type": "int", "vid": 57 }
+      ],
+      "locals": [ { "name": "__retres", "type": "int", "vid": 193 } ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 21,
+          "pred_sids": [],
+          "succ_sids": [ 227 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "__retres = a + b;" }
+        },
+        {
+          "sid": 227,
+          "pred_sids": [ 21 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  },
+  {
+    "id": "rm_bad_sid",
+    "data": {
+      "result": {
+        "success": false,
+        "error": "statement 99999 is not a tracked ghost statement"
+      }
+    }
+  },
+  {
+    "id": "rm_assign",
+    "data": {
+      "result": {
+        "success": false,
+        "error": "statement 379 is not a tracked ghost statement"
+      }
+    }
+  },
+  {
+    "id": "after_rm1",
+    "data": {
+      "name": "add",
+      "signature": "int add(int a, int b)",
+      "formals": [
+        { "name": "a", "type": "int", "vid": 56 },
+        { "name": "b", "type": "int", "vid": 57 }
+      ],
+      "locals": [ { "name": "__retres", "type": "int", "vid": 193 } ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 21,
+          "pred_sids": [],
+          "succ_sids": [ 227 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "__retres = a + b;" }
+        },
+        {
+          "sid": 227,
+          "pred_sids": [ 21 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  },
+  {
+    "id": "rm_decl_cascade",
+    "data": {
+      "result": {
+        "success": false,
+        "error": "statement 375 is not a tracked ghost statement"
+      }
+    }
+  },
+  {
+    "id": "after_rm2",
+    "data": {
+      "name": "add",
+      "signature": "int add(int a, int b)",
+      "formals": [
+        { "name": "a", "type": "int", "vid": 56 },
+        { "name": "b", "type": "int", "vid": 57 }
+      ],
+      "locals": [ { "name": "__retres", "type": "int", "vid": 193 } ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 21,
+          "pred_sids": [],
+          "succ_sids": [ 227 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "__retres = a + b;" }
+        },
+        {
+          "sid": 227,
+          "pred_sids": [ 21 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  }
+]
