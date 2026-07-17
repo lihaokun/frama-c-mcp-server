@@ -8,7 +8,7 @@ An [MCP](https://modelcontextprotocol.io/) server for [Frama-C](https://frama-c.
 
 ```
 AI Agent <── MCP (stdio) ──> Rust Server ──┬── Unix Socket ──> Frama-C (main)   ── EVA / WP / CIL
-                              rmcp 0.16     │                   + ast-utils plugin
+                              rmcp 1.x      │                   + ast-utils plugin
                               43 tools      │
                               session state └── Unix Socket ──> Frama-C (sandbox) ── isolated CEGIS
                                                                 + ast-utils plugin

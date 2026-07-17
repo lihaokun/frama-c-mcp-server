@@ -5,6 +5,8 @@
 > **验证方式**：Unix Socket 实测 + Frama-C/Ivette 源码审计
 >
 > 本文档是从实际开发中提炼的 Frama-C Server 协议参考，涵盖协议规范、API 清单和实现中的关键陷阱。适用于任何需要与 Frama-C Server 通信的客户端项目。
+>
+> **注意**：本文描述的是 **Frama-C 自身**的 server 协议与启动方式（含手工 `-server-socket`、`-server-zmq` 等选项），供协议层参考。**使用本仓库的 MCP server 时不需要手工启动 Frama-C**——它会自行拉起（见 [README](../../README.md)）。
 
 ---
 
