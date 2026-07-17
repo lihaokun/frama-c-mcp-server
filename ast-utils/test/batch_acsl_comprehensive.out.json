@@ -1,0 +1,148 @@
+[
+  {
+    "id": "v_spec_ok",
+    "data": { "result": { "valid": true, "error": null } }
+  },
+  {
+    "id": "v_spec_bad_syntax",
+    "data": {
+      "result": {
+        "valid": false,
+        "error": "ACSL syntax error in function contract"
+      }
+    }
+  },
+  {
+    "id": "v_spec_bad_type",
+    "data": {
+      "result": {
+        "valid": false,
+        "error": "comparison of incompatible types: char * and ℤ"
+      }
+    }
+  },
+  {
+    "id": "v_spec_bad_func",
+    "data": { "result": { "error": "function 'no_such_func' not found" } }
+  },
+  {
+    "id": "v_annot_assert",
+    "data": { "result": { "error": "statement 23 not found" } }
+  },
+  {
+    "id": "v_annot_loop_inv",
+    "data": { "result": { "error": "statement 32 not found" } }
+  },
+  {
+    "id": "v_annot_no_stmt",
+    "data": {
+      "result": { "error": "stmt parameter required for kind=annot" }
+    }
+  },
+  {
+    "id": "v_annot_bad_sid",
+    "data": { "result": { "error": "statement 99999 not found" } }
+  },
+  {
+    "id": "v_bad_kind",
+    "data": {
+      "result": {
+        "error": "unknown kind 'invalid', expected 'spec' or 'annot'"
+      }
+    }
+  },
+  {
+    "id": "v_spec_rect",
+    "data": { "result": { "valid": true, "error": null } }
+  },
+  {
+    "id": "v_spec_ptr",
+    "data": { "result": { "valid": true, "error": null } }
+  },
+  {
+    "id": "add_spec",
+    "data": { "result": { "success": true, "error": null } }
+  },
+  {
+    "id": "add_annot",
+    "data": { "result": { "error": "statement 23 not found" } }
+  },
+  {
+    "id": "add_bad_acsl",
+    "data": {
+      "result": {
+        "success": false,
+        "error": "ACSL syntax error in function contract"
+      }
+    }
+  },
+  {
+    "id": "add_loop_on_nonloop",
+    "data": { "result": { "error": "statement 23 not found" } }
+  },
+  {
+    "id": "check_add",
+    "data": {
+      "name": "add",
+      "signature": "int add(int a, int b)",
+      "formals": [
+        { "name": "a", "type": "int", "vid": 56 },
+        { "name": "b", "type": "int", "vid": 57 }
+      ],
+      "locals": [ { "name": "__retres", "type": "int", "vid": 193 } ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 21,
+          "pred_sids": [],
+          "succ_sids": [ 227 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "__retres = a + b;" }
+        },
+        {
+          "sid": 227,
+          "pred_sids": [ 21 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  },
+  { "id": "rm_add", "data": { "success": true, "removed_count": 1 } },
+  {
+    "id": "check_rm",
+    "data": {
+      "name": "add",
+      "signature": "int add(int a, int b)",
+      "formals": [
+        { "name": "a", "type": "int", "vid": 56 },
+        { "name": "b", "type": "int", "vid": 57 }
+      ],
+      "locals": [ { "name": "__retres", "type": "int", "vid": 193 } ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 21,
+          "pred_sids": [],
+          "succ_sids": [ 227 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "__retres = a + b;" }
+        },
+        {
+          "sid": 227,
+          "pred_sids": [ 21 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  },
+  { "id": "rm_stmts", "data": { "success": true, "removed_count": 0 } },
+  { "id": "rm_noop", "data": { "success": true, "removed_count": 0 } },
+  {
+    "id": "rm_bad_func",
+    "data": { "error": "function 'no_such_func' not found" }
+  }
+]

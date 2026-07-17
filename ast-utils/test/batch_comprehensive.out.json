@@ -1,0 +1,1260 @@
+[
+  {
+    "id": "f01",
+    "data": {
+      "name": "add",
+      "signature": "int add(int a, int b)",
+      "formals": [
+        { "name": "a", "type": "int", "vid": 56 },
+        { "name": "b", "type": "int", "vid": 57 }
+      ],
+      "locals": [ { "name": "__retres", "type": "int", "vid": 193 } ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 21,
+          "pred_sids": [],
+          "succ_sids": [ 227 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "__retres = a + b;" }
+        },
+        {
+          "sid": 227,
+          "pred_sids": [ 21 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f02",
+    "data": {
+      "name": "apply_op",
+      "signature": "int apply_op(int (*op)(int , int ), int x, int y)",
+      "formals": [
+        { "name": "op", "type": "int (*)(int , int )", "vid": 67 },
+        { "name": "x", "type": "int", "vid": 68 },
+        { "name": "y", "type": "int", "vid": 69 }
+      ],
+      "locals": [ { "name": "tmp", "type": "int", "vid": 70 } ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 26,
+          "pred_sids": [],
+          "succ_sids": [ 27 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "call",
+            "code": "tmp = (*op)(x,y);",
+            "callee": "*op",
+            "actuals": [ "x", "y" ]
+          }
+        },
+        {
+          "sid": 27,
+          "pred_sids": [ 26 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "tmp"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f03",
+    "data": {
+      "name": "clamp",
+      "signature": "int clamp(int val, int lo, int hi)",
+      "formals": [
+        { "name": "val", "type": "int", "vid": 75 },
+        { "name": "lo", "type": "int", "vid": 76 },
+        { "name": "hi", "type": "int", "vid": 77 }
+      ],
+      "locals": [ { "name": "__retres", "type": "int", "vid": 195 } ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 30,
+          "pred_sids": [],
+          "succ_sids": [ 232, 35 ],
+          "kind": "if",
+          "cond": "val < lo",
+          "then_body": [
+            {
+              "sid": 232,
+              "pred_sids": [ 30 ],
+              "succ_sids": [ 32 ],
+              "kind": "block",
+              "stmts": [
+                {
+                  "sid": 32,
+                  "pred_sids": [ 232 ],
+                  "succ_sids": [ 233 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "__retres = lo;" }
+                },
+                {
+                  "sid": 233,
+                  "pred_sids": [ 32 ],
+                  "succ_sids": [ 236 ],
+                  "kind": "goto",
+                  "target_sid": 236
+                }
+              ]
+            }
+          ],
+          "else_body": []
+        },
+        {
+          "sid": 35,
+          "pred_sids": [ 30 ],
+          "succ_sids": [ 234, 40 ],
+          "kind": "if",
+          "cond": "val > hi",
+          "then_body": [
+            {
+              "sid": 234,
+              "pred_sids": [ 35 ],
+              "succ_sids": [ 37 ],
+              "kind": "block",
+              "stmts": [
+                {
+                  "sid": 37,
+                  "pred_sids": [ 234 ],
+                  "succ_sids": [ 235 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "__retres = hi;" }
+                },
+                {
+                  "sid": 235,
+                  "pred_sids": [ 37 ],
+                  "succ_sids": [ 236 ],
+                  "kind": "goto",
+                  "target_sid": 236
+                }
+              ]
+            }
+          ],
+          "else_body": []
+        },
+        {
+          "sid": 40,
+          "pred_sids": [ 35 ],
+          "succ_sids": [ 236 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "__retres = val;" }
+        },
+        {
+          "sid": 236,
+          "pred_sids": [ 40, 235, 233 ],
+          "succ_sids": [],
+          "labels": [ { "label": "return_label" } ],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f04",
+    "data": {
+      "name": "test_all_stmts",
+      "signature": "int test_all_stmts(int n, int mode)",
+      "formals": [
+        { "name": "n", "type": "int", "vid": 81 },
+        { "name": "mode", "type": "int", "vid": 82 }
+      ],
+      "locals": [
+        { "name": "result", "type": "int", "vid": 87 },
+        { "name": "i", "type": "int", "vid": 88 }
+      ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 42,
+          "pred_sids": [],
+          "succ_sids": [ 44 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "int result = 0;" }
+        },
+        {
+          "sid": 44,
+          "pred_sids": [ 42 ],
+          "succ_sids": [ 46, 49 ],
+          "kind": "if",
+          "cond": "n > 0",
+          "then_body": [
+            {
+              "sid": 46,
+              "pred_sids": [ 44 ],
+              "succ_sids": [ 47, 48 ],
+              "kind": "if",
+              "cond": "mode == 1",
+              "then_body": [
+                {
+                  "sid": 47,
+                  "pred_sids": [ 46 ],
+                  "succ_sids": [ 50 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "result = 1;" }
+                }
+              ],
+              "else_body": [
+                {
+                  "sid": 48,
+                  "pred_sids": [ 46 ],
+                  "succ_sids": [ 50 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "result = 2;" }
+                }
+              ]
+            }
+          ],
+          "else_body": [
+            {
+              "sid": 49,
+              "pred_sids": [ 44 ],
+              "succ_sids": [ 50 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "result = -1;" }
+            }
+          ]
+        },
+        {
+          "sid": 50,
+          "pred_sids": [ 49, 48, 47 ],
+          "succ_sids": [ 51 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "i = 0;" }
+        },
+        {
+          "sid": 51,
+          "pred_sids": [ 62, 59, 50 ],
+          "succ_sids": [ 53 ],
+          "kind": "loop",
+          "body": [
+            {
+              "sid": 53,
+              "pred_sids": [ 51 ],
+              "succ_sids": [ 54, 57 ],
+              "kind": "if",
+              "cond": "i >= n",
+              "then_body": [
+                {
+                  "sid": 54,
+                  "pred_sids": [ 53 ],
+                  "succ_sids": [ 64 ],
+                  "kind": "break"
+                }
+              ],
+              "else_body": []
+            },
+            {
+              "sid": 57,
+              "pred_sids": [ 53 ],
+              "succ_sids": [ 58, 61 ],
+              "kind": "if",
+              "cond": "i % 2 == 0",
+              "then_body": [
+                {
+                  "sid": 58,
+                  "pred_sids": [ 57 ],
+                  "succ_sids": [ 59 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "i ++;" }
+                },
+                {
+                  "sid": 59,
+                  "pred_sids": [ 58 ],
+                  "succ_sids": [ 51 ],
+                  "kind": "continue"
+                }
+              ],
+              "else_body": []
+            },
+            {
+              "sid": 61,
+              "pred_sids": [ 57 ],
+              "succ_sids": [ 62 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "result += i;" }
+            },
+            {
+              "sid": 62,
+              "pred_sids": [ 61 ],
+              "succ_sids": [ 51 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "i ++;" }
+            }
+          ]
+        },
+        {
+          "sid": 64,
+          "pred_sids": [ 54 ],
+          "succ_sids": [ 65, 67, 69 ],
+          "kind": "switch",
+          "expr": "mode",
+          "cases": [
+            { "sid": 65, "values": [ "0" ] },
+            { "sid": 67, "values": [ "1", "2" ] },
+            { "sid": 69, "default": true }
+          ]
+        },
+        {
+          "sid": 70,
+          "pred_sids": [ 68, 66 ],
+          "succ_sids": [ 71 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "i = 0;" }
+        },
+        {
+          "sid": 71,
+          "pred_sids": [ 77, 70 ],
+          "succ_sids": [ 73 ],
+          "kind": "loop",
+          "body": [
+            {
+              "sid": 73,
+              "pred_sids": [ 71 ],
+              "succ_sids": [ 75, 74 ],
+              "kind": "if",
+              "cond": "i < 5",
+              "then_body": [],
+              "else_body": [
+                {
+                  "sid": 74,
+                  "pred_sids": [ 73 ],
+                  "succ_sids": [ 78 ],
+                  "kind": "break"
+                }
+              ]
+            },
+            {
+              "sid": 75,
+              "pred_sids": [ 73 ],
+              "succ_sids": [ 76 ],
+              "kind": "block",
+              "stmts": [
+                {
+                  "sid": 76,
+                  "pred_sids": [ 75 ],
+                  "succ_sids": [ 77 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "result += i;" }
+                }
+              ]
+            },
+            {
+              "sid": 77,
+              "pred_sids": [ 76 ],
+              "succ_sids": [ 71 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "i ++;" }
+            }
+          ]
+        },
+        {
+          "sid": 78,
+          "pred_sids": [ 74, 69 ],
+          "succ_sids": [ 79 ],
+          "labels": [ { "label": "done" } ],
+          "kind": "skip"
+        },
+        {
+          "sid": 79,
+          "pred_sids": [ 78 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "result"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f05",
+    "data": {
+      "name": "test_calls",
+      "signature": "int test_calls(int a, int b)",
+      "formals": [
+        { "name": "a", "type": "int", "vid": 92 },
+        { "name": "b", "type": "int", "vid": 93 }
+      ],
+      "locals": [
+        { "name": "sum_0", "type": "int", "vid": 94 },
+        { "name": "op", "type": "int (*)(int , int )", "vid": 96 },
+        { "name": "diff", "type": "int", "vid": 97 },
+        { "name": "tmp_0", "type": "int", "vid": 98 },
+        { "name": "applied", "type": "int", "vid": 99 },
+        { "name": "clamped", "type": "int", "vid": 101 },
+        { "name": "tmp_2", "type": "int", "vid": 102 },
+        { "name": "tmp_3", "type": "int", "vid": 103 },
+        { "name": "__retres", "type": "int", "vid": 196 }
+      ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 81,
+          "pred_sids": [],
+          "succ_sids": [ 82 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "call",
+            "code": "int sum_0 = add(a,b);",
+            "callee": "add",
+            "actuals": [ "a", "b" ]
+          }
+        },
+        {
+          "sid": 82,
+          "pred_sids": [ 81 ],
+          "succ_sids": [ 83 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "set",
+            "code": "int (*)(int , int ) op = & sub;"
+          }
+        },
+        {
+          "sid": 83,
+          "pred_sids": [ 82 ],
+          "succ_sids": [ 84 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "call",
+            "code": "tmp_0 = (*op)(a,b);",
+            "callee": "*op",
+            "actuals": [ "a", "b" ]
+          }
+        },
+        {
+          "sid": 84,
+          "pred_sids": [ 83 ],
+          "succ_sids": [ 85 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "int diff = tmp_0;" }
+        },
+        {
+          "sid": 85,
+          "pred_sids": [ 84 ],
+          "succ_sids": [ 86 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "call",
+            "code": "int applied = apply_op(& add,a,b);",
+            "callee": "apply_op",
+            "actuals": [ "& add", "a", "b" ]
+          }
+        },
+        {
+          "sid": 86,
+          "pred_sids": [ 85 ],
+          "succ_sids": [ 87 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "call",
+            "code": "tmp_2 = add(a,b);",
+            "callee": "add",
+            "actuals": [ "a", "b" ]
+          }
+        },
+        {
+          "sid": 87,
+          "pred_sids": [ 86 ],
+          "succ_sids": [ 88 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "call",
+            "code": "tmp_3 = clamp(tmp_2,0,100);",
+            "callee": "clamp",
+            "actuals": [ "tmp_2", "0", "100" ]
+          }
+        },
+        {
+          "sid": 88,
+          "pred_sids": [ 87 ],
+          "succ_sids": [ 90 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "int clamped = tmp_3;" }
+        },
+        {
+          "sid": 90,
+          "pred_sids": [ 88 ],
+          "succ_sids": [ 239 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "set",
+            "code": "__retres = ((sum_0 + diff) + applied) + clamped;"
+          }
+        },
+        {
+          "sid": 239,
+          "pred_sids": [ 90 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f06",
+    "data": {
+      "name": "make_rect",
+      "signature": "struct rect make_rect(int x1, int y1, int x2, int y2)",
+      "formals": [
+        { "name": "x1", "type": "int", "vid": 109 },
+        { "name": "y1", "type": "int", "vid": 110 },
+        { "name": "x2", "type": "int", "vid": 111 },
+        { "name": "y2", "type": "int", "vid": 112 }
+      ],
+      "locals": [ { "name": "r", "type": "struct rect", "vid": 113 } ],
+      "return_type": "struct rect",
+      "body": [
+        {
+          "sid": 92,
+          "pred_sids": [],
+          "succ_sids": [ 93 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "r.top_left.x = x1;" }
+        },
+        {
+          "sid": 93,
+          "pred_sids": [ 92 ],
+          "succ_sids": [ 94 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "r.top_left.y = y1;" }
+        },
+        {
+          "sid": 94,
+          "pred_sids": [ 93 ],
+          "succ_sids": [ 95 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "r.bottom_right.x = x2;" }
+        },
+        {
+          "sid": 95,
+          "pred_sids": [ 94 ],
+          "succ_sids": [ 97 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "r.bottom_right.y = y2;" }
+        },
+        {
+          "sid": 97,
+          "pred_sids": [ 95 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "r"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f07",
+    "data": {
+      "name": "rect_area",
+      "signature": "int rect_area(struct rect *r)",
+      "formals": [ { "name": "r", "type": "struct rect *", "vid": 116 } ],
+      "locals": [
+        { "name": "w", "type": "int", "vid": 117 },
+        { "name": "h", "type": "int", "vid": 118 },
+        { "name": "__retres", "type": "int", "vid": 197 }
+      ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 99,
+          "pred_sids": [],
+          "succ_sids": [ 100 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "set",
+            "code": "int w = r->bottom_right.x - r->top_left.x;"
+          }
+        },
+        {
+          "sid": 100,
+          "pred_sids": [ 99 ],
+          "succ_sids": [ 102 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "set",
+            "code": "int h = r->bottom_right.y - r->top_left.y;"
+          }
+        },
+        {
+          "sid": 102,
+          "pred_sids": [ 100 ],
+          "succ_sids": [ 103, 106 ],
+          "kind": "if",
+          "cond": "w < 0",
+          "then_body": [
+            {
+              "sid": 103,
+              "pred_sids": [ 102 ],
+              "succ_sids": [ 106 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "w = - w;" }
+            }
+          ],
+          "else_body": []
+        },
+        {
+          "sid": 106,
+          "pred_sids": [ 103, 102 ],
+          "succ_sids": [ 107, 110 ],
+          "kind": "if",
+          "cond": "h < 0",
+          "then_body": [
+            {
+              "sid": 107,
+              "pred_sids": [ 106 ],
+              "succ_sids": [ 110 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "h = - h;" }
+            }
+          ],
+          "else_body": []
+        },
+        {
+          "sid": 110,
+          "pred_sids": [ 107, 106 ],
+          "succ_sids": [ 242 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "__retres = w * h;" }
+        },
+        {
+          "sid": 242,
+          "pred_sids": [ 110 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f08",
+    "data": {
+      "name": "test_struct_union",
+      "signature": "int test_struct_union(enum color c)",
+      "formals": [ { "name": "c", "type": "enum color", "vid": 121 } ],
+      "locals": [
+        { "name": "tv", "type": "struct tagged_value", "vid": 122 },
+        { "name": "r", "type": "struct rect", "vid": 123 },
+        { "name": "area", "type": "int", "vid": 125 },
+        { "name": "__retres", "type": "int", "vid": 198 }
+      ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 112,
+          "pred_sids": [],
+          "succ_sids": [ 114 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "tv.tag = c;" }
+        },
+        {
+          "sid": 114,
+          "pred_sids": [ 112 ],
+          "succ_sids": [ 115, 117, 119, 121 ],
+          "kind": "switch",
+          "expr": "c",
+          "cases": [
+            { "sid": 115, "values": [ "RED" ] },
+            { "sid": 117, "values": [ "GREEN" ] },
+            { "sid": 119, "values": [ "BLUE" ] }
+          ]
+        },
+        {
+          "sid": 121,
+          "pred_sids": [ 120, 118, 116, 114 ],
+          "succ_sids": [ 122 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "set",
+            "code": "tv.next = (struct tagged_value *)0;"
+          }
+        },
+        {
+          "sid": 122,
+          "pred_sids": [ 121 ],
+          "succ_sids": [ 123 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "call",
+            "code": "struct rect r = make_rect(0,0,10,20);",
+            "callee": "make_rect",
+            "actuals": [ "0", "0", "10", "20" ]
+          }
+        },
+        {
+          "sid": 123,
+          "pred_sids": [ 122 ],
+          "succ_sids": [ 125 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "call",
+            "code": "int area = rect_area(& r);",
+            "callee": "rect_area",
+            "actuals": [ "& r" ]
+          }
+        },
+        {
+          "sid": 125,
+          "pred_sids": [ 123 ],
+          "succ_sids": [ 244, 246 ],
+          "kind": "if",
+          "cond": "tv.tag == (unsigned int)RED",
+          "then_body": [
+            {
+              "sid": 244,
+              "pred_sids": [ 125 ],
+              "succ_sids": [ 127 ],
+              "kind": "block",
+              "stmts": [
+                {
+                  "sid": 127,
+                  "pred_sids": [ 244 ],
+                  "succ_sids": [ 245 ],
+                  "kind": "instr",
+                  "instr": {
+                    "kind": "set",
+                    "code": "__retres = tv.val.i + area;"
+                  }
+                },
+                {
+                  "sid": 245,
+                  "pred_sids": [ 127 ],
+                  "succ_sids": [ 248 ],
+                  "kind": "goto",
+                  "target_sid": 248
+                }
+              ]
+            }
+          ],
+          "else_body": [
+            {
+              "sid": 246,
+              "pred_sids": [ 125 ],
+              "succ_sids": [ 129 ],
+              "kind": "block",
+              "stmts": [
+                {
+                  "sid": 129,
+                  "pred_sids": [ 246 ],
+                  "succ_sids": [ 247 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "__retres = area;" }
+                },
+                {
+                  "sid": 247,
+                  "pred_sids": [ 129 ],
+                  "succ_sids": [ 248 ],
+                  "kind": "goto",
+                  "target_sid": 248
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sid": 248,
+          "pred_sids": [ 247, 245 ],
+          "succ_sids": [],
+          "labels": [ { "label": "return_label" } ],
+          "kind": "return",
+          "expr": "__retres"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f09",
+    "data": {
+      "name": "test_array_ptr",
+      "signature": "void test_array_ptr(int *arr, int len)",
+      "formals": [
+        { "name": "arr", "type": "int *", "vid": 130 },
+        { "name": "len", "type": "int", "vid": 131 }
+      ],
+      "locals": [
+        { "name": "buf", "type": "int [10]", "vid": 132 },
+        { "name": "p", "type": "int *", "vid": 133 },
+        { "name": "i", "type": "int", "vid": 134 },
+        { "name": "pts", "type": "struct point [3]", "vid": 135 },
+        { "name": "matrix", "type": "int [2][3]", "vid": 136 },
+        { "name": "val", "type": "int", "vid": 137 }
+      ],
+      "return_type": "void",
+      "body": [
+        {
+          "sid": 131,
+          "pred_sids": [],
+          "succ_sids": [ 132 ],
+          "kind": "block",
+          "stmts": [
+            {
+              "sid": 132,
+              "pred_sids": [ 131 ],
+              "succ_sids": [ 133 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "int i = 0;" }
+            },
+            {
+              "sid": 133,
+              "pred_sids": [ 142, 132 ],
+              "succ_sids": [ 135 ],
+              "kind": "loop",
+              "body": [
+                {
+                  "sid": 135,
+                  "pred_sids": [ 133 ],
+                  "succ_sids": [ 137, 139 ],
+                  "kind": "if",
+                  "cond": "i < 10",
+                  "then_body": [
+                    {
+                      "sid": 137,
+                      "pred_sids": [ 135 ],
+                      "succ_sids": [ 140, 138 ],
+                      "kind": "if",
+                      "cond": "i < len",
+                      "then_body": [],
+                      "else_body": [
+                        {
+                          "sid": 138,
+                          "pred_sids": [ 137 ],
+                          "succ_sids": [ 143 ],
+                          "kind": "break"
+                        }
+                      ]
+                    }
+                  ],
+                  "else_body": [
+                    {
+                      "sid": 139,
+                      "pred_sids": [ 135 ],
+                      "succ_sids": [ 143 ],
+                      "kind": "break"
+                    }
+                  ]
+                },
+                {
+                  "sid": 140,
+                  "pred_sids": [ 137 ],
+                  "succ_sids": [ 141 ],
+                  "kind": "block",
+                  "stmts": [
+                    {
+                      "sid": 141,
+                      "pred_sids": [ 140 ],
+                      "succ_sids": [ 142 ],
+                      "kind": "instr",
+                      "instr": {
+                        "kind": "set",
+                        "code": "buf[i] = *(arr + i);"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "sid": 142,
+                  "pred_sids": [ 141 ],
+                  "succ_sids": [ 133 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "i ++;" }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sid": 143,
+          "pred_sids": [ 139, 138 ],
+          "succ_sids": [ 144 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "p = buf;" }
+        },
+        {
+          "sid": 144,
+          "pred_sids": [ 150, 143 ],
+          "succ_sids": [ 146 ],
+          "kind": "loop",
+          "body": [
+            {
+              "sid": 146,
+              "pred_sids": [ 144 ],
+              "succ_sids": [ 148, 147 ],
+              "kind": "if",
+              "cond": "p < & buf[10]",
+              "then_body": [],
+              "else_body": [
+                {
+                  "sid": 147,
+                  "pred_sids": [ 146 ],
+                  "succ_sids": [ 151 ],
+                  "kind": "break"
+                }
+              ]
+            },
+            {
+              "sid": 148,
+              "pred_sids": [ 146 ],
+              "succ_sids": [ 149 ],
+              "kind": "block",
+              "stmts": [
+                {
+                  "sid": 149,
+                  "pred_sids": [ 148 ],
+                  "succ_sids": [ 150 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "*p *= 2;" }
+                },
+                {
+                  "sid": 150,
+                  "pred_sids": [ 149 ],
+                  "succ_sids": [ 144 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "p ++;" }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sid": 151,
+          "pred_sids": [ 147 ],
+          "succ_sids": [ 152 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "pts[0].x = 1;" }
+        },
+        {
+          "sid": 152,
+          "pred_sids": [ 151 ],
+          "succ_sids": [ 153 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "pts[0].y = 2;" }
+        },
+        {
+          "sid": 153,
+          "pred_sids": [ 152 ],
+          "succ_sids": [ 154 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "pts[1].x = 3;" }
+        },
+        {
+          "sid": 154,
+          "pred_sids": [ 153 ],
+          "succ_sids": [ 155 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "pts[1].y = 4;" }
+        },
+        {
+          "sid": 155,
+          "pred_sids": [ 154 ],
+          "succ_sids": [ 156 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "pts[2].x = 5;" }
+        },
+        {
+          "sid": 156,
+          "pred_sids": [ 155 ],
+          "succ_sids": [ 157 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "pts[2].y = 6;" }
+        },
+        {
+          "sid": 157,
+          "pred_sids": [ 156 ],
+          "succ_sids": [ 158 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "set",
+            "code": "int matrix[2][3] = {{1, 2, 3}, {4, 5, 6}};"
+          }
+        },
+        {
+          "sid": 158,
+          "pred_sids": [ 157 ],
+          "succ_sids": [ 159 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "int val = matrix[1][2];" }
+        },
+        {
+          "sid": 159,
+          "pred_sids": [ 158 ],
+          "succ_sids": [ 250 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "*(arr + 0) = val + pts[0].x;" }
+        },
+        {
+          "sid": 250,
+          "pred_sids": [ 159 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": null
+        }
+      ]
+    }
+  },
+  {
+    "id": "f10",
+    "data": {
+      "name": "test_typedef",
+      "signature": "int test_typedef(void)",
+      "formals": [],
+      "locals": [
+        { "name": "e", "type": "entry_t", "vid": 140 },
+        { "name": "res", "type": "int", "vid": 141 },
+        { "name": "tmp", "type": "int", "vid": 142 }
+      ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 162,
+          "pred_sids": [],
+          "succ_sids": [ 163 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "e.id = (uint32_t_local)1;" }
+        },
+        {
+          "sid": 163,
+          "pred_sids": [ 162 ],
+          "succ_sids": [ 164 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "e.handler = & add;" }
+        },
+        {
+          "sid": 164,
+          "pred_sids": [ 163 ],
+          "succ_sids": [ 165 ],
+          "kind": "instr",
+          "instr": {
+            "kind": "call",
+            "code": "tmp = (*(e.handler))(10,20);",
+            "callee": "*(e.handler)",
+            "actuals": [ "10", "20" ]
+          }
+        },
+        {
+          "sid": 165,
+          "pred_sids": [ 164 ],
+          "succ_sids": [ 167 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "int res = tmp;" }
+        },
+        {
+          "sid": 167,
+          "pred_sids": [ 165 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "res"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f11",
+    "data": {
+      "name": "test_void_return",
+      "signature": "void test_void_return(int *p)",
+      "formals": [ { "name": "p", "type": "int *", "vid": 149 } ],
+      "locals": [],
+      "return_type": "void",
+      "body": [
+        {
+          "sid": 174,
+          "pred_sids": [],
+          "succ_sids": [ 254, 177 ],
+          "kind": "if",
+          "cond": "p == (int *)0",
+          "then_body": [
+            {
+              "sid": 254,
+              "pred_sids": [ 174 ],
+              "succ_sids": [ 255 ],
+              "kind": "block",
+              "stmts": [
+                {
+                  "sid": 255,
+                  "pred_sids": [ 254 ],
+                  "succ_sids": [ 256 ],
+                  "kind": "goto",
+                  "target_sid": 256
+                }
+              ]
+            }
+          ],
+          "else_body": []
+        },
+        {
+          "sid": 177,
+          "pred_sids": [ 174 ],
+          "succ_sids": [ 256 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "*p = 42;" }
+        },
+        {
+          "sid": 256,
+          "pred_sids": [ 177, 255 ],
+          "succ_sids": [],
+          "labels": [ { "label": "return_label" } ],
+          "kind": "return",
+          "expr": null
+        }
+      ]
+    }
+  },
+  {
+    "id": "f12",
+    "data": {
+      "name": "test_annotations",
+      "signature": "int test_annotations(int *p, int n)",
+      "formals": [
+        { "name": "p", "type": "int *", "vid": 153 },
+        { "name": "n", "type": "int", "vid": 154 }
+      ],
+      "locals": [
+        { "name": "sum_0", "type": "int", "vid": 155 },
+        { "name": "i", "type": "int", "vid": 156 }
+      ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 180,
+          "pred_sids": [],
+          "succ_sids": [ 181 ],
+          "annotations": [ "assert p ≢ \\null;" ],
+          "kind": "skip"
+        },
+        {
+          "sid": 181,
+          "pred_sids": [ 180 ],
+          "succ_sids": [ 182 ],
+          "annotations": [ "assert n > 0;" ],
+          "kind": "skip"
+        },
+        {
+          "sid": 182,
+          "pred_sids": [ 181 ],
+          "succ_sids": [ 183 ],
+          "kind": "instr",
+          "instr": { "kind": "set", "code": "int sum_0 = 0;" }
+        },
+        {
+          "sid": 183,
+          "pred_sids": [ 182 ],
+          "succ_sids": [ 184 ],
+          "kind": "block",
+          "stmts": [
+            {
+              "sid": 184,
+              "pred_sids": [ 183 ],
+              "succ_sids": [ 185 ],
+              "kind": "instr",
+              "instr": { "kind": "set", "code": "int i = 0;" }
+            },
+            {
+              "sid": 185,
+              "pred_sids": [ 191, 184 ],
+              "succ_sids": [ 187 ],
+              "annotations": [
+                "loop assigns i, sum_0;", "loop variant n - i;",
+                "loop invariant sum_0 ≥ 0;",
+                "loop invariant 0 ≤ i ≤ n;"
+              ],
+              "kind": "loop",
+              "body": [
+                {
+                  "sid": 187,
+                  "pred_sids": [ 185 ],
+                  "succ_sids": [ 189, 188 ],
+                  "kind": "if",
+                  "cond": "i < n",
+                  "then_body": [],
+                  "else_body": [
+                    {
+                      "sid": 188,
+                      "pred_sids": [ 187 ],
+                      "succ_sids": [ 193 ],
+                      "kind": "break"
+                    }
+                  ]
+                },
+                {
+                  "sid": 189,
+                  "pred_sids": [ 187 ],
+                  "succ_sids": [ 190 ],
+                  "kind": "block",
+                  "stmts": [
+                    {
+                      "sid": 190,
+                      "pred_sids": [ 189 ],
+                      "succ_sids": [ 191 ],
+                      "kind": "instr",
+                      "instr": {
+                        "kind": "set",
+                        "code": "sum_0 += *(p + i);"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "sid": 191,
+                  "pred_sids": [ 190 ],
+                  "succ_sids": [ 185 ],
+                  "kind": "instr",
+                  "instr": { "kind": "set", "code": "i ++;" }
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "sid": 193,
+          "pred_sids": [ 188 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "sum_0"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f13",
+    "data": {
+      "name": "test_asm",
+      "signature": "int test_asm(int x)",
+      "formals": [ { "name": "x", "type": "int", "vid": 145 } ],
+      "locals": [ { "name": "out", "type": "int", "vid": 146 } ],
+      "return_type": "int",
+      "body": [
+        {
+          "sid": 169,
+          "pred_sids": [],
+          "succ_sids": [ 171 ],
+          "annotations": [ "assigns out;\nassigns out \\from x;" ],
+          "kind": "instr",
+          "instr": {
+            "kind": "asm",
+            "code": "__asm__ (\"movl %1, %0\" : \"=r\" (out) : \"r\" (x));"
+          }
+        },
+        {
+          "sid": 171,
+          "pred_sids": [ 169 ],
+          "succ_sids": [],
+          "kind": "return",
+          "expr": "out"
+        }
+      ]
+    }
+  },
+  {
+    "id": "f14",
+    "data": { "error": "function 'nonexistent_func' not found" }
+  }
+]

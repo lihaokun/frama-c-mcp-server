@@ -1,18 +1,7 @@
 //! Integration tests against a live Frama-C Server.
 //!
-//! Prerequisites:
-//!   Phase 1 test:
-//!     frama-c test/test_abs.c -server-socket /tmp/frama-c-test.sock
-//!   Phase 2 test:
-//!     frama-c test/test_phase2.c -server-socket /tmp/frama-c-test-p2.sock
-//!   Comprehensive test:
-//!     frama-c test/test_comprehensive.c -server-socket /tmp/frama-c-test-comp.sock
-//!   Iterative workflow test:
-//!     frama-c test/test_iterative_raw.c -server-socket /tmp/frama-c-test-iter.sock
-//!
-//! Note: Frama-C Server accepts only ONE client at a time and shutdown()
-//! kills the server process. All live-server tests are consolidated into
-//! one comprehensive test per phase. Run with --test-threads=1.
+//! Frama-C servers are automatically spawned for each test.
+//! Run with --test-threads=1 to avoid port conflicts.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -21,6 +10,56 @@ use tokio::sync::RwLock;
 
 use frama_c_mcp_server::frama_c::client::FramaCClient;
 use frama_c_mcp_server::state::SessionState;
+
+/// RAII guard that spawns a Frama-C server process and kills it on drop.
+struct FramaCServerGuard {
+    child: std::process::Child,
+    sock_path: String,
+}
+
+impl FramaCServerGuard {
+    /// Spawn `frama-c <c_file> -server-socket <sock_path>` and wait for the
+    /// socket file to appear (up to 30 seconds).
+    async fn start(c_file: &str, sock_path: &str) -> Self {
+        // Clean up stale socket if it exists
+        let _ = std::fs::remove_file(sock_path);
+
+        let child = std::process::Command::new("frama-c")
+            .arg(c_file)
+            .arg("-server-socket")
+            .arg(sock_path)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::piped())
+            .spawn()
+            .expect("failed to spawn frama-c");
+
+        // Wait for socket file to appear
+        let deadline = std::time::Instant::now() + Duration::from_secs(30);
+        while std::time::Instant::now() < deadline {
+            if std::path::Path::new(sock_path).exists() {
+                // Give the server a moment to start accepting connections
+                tokio::time::sleep(Duration::from_millis(100)).await;
+                return Self {
+                    child,
+                    sock_path: sock_path.to_string(),
+                };
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        panic!(
+            "frama-c server did not create socket {} within 30s",
+            sock_path
+        );
+    }
+}
+
+impl Drop for FramaCServerGuard {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        let _ = std::fs::remove_file(&self.sock_path);
+    }
+}
 
 fn socket_path() -> String {
     std::env::var("FRAMA_C_SOCK").unwrap_or_else(|_| "/tmp/frama-c-test.sock".into())
@@ -35,30 +74,29 @@ fn socket_path_comp() -> String {
         .unwrap_or_else(|_| "/tmp/frama-c-test-comp.sock".into())
 }
 
-async fn connect() -> (FramaCClient, Arc<RwLock<SessionState>>) {
-    let state = Arc::new(RwLock::new(SessionState::default()));
-    let client = FramaCClient::connect(&socket_path(), state.clone())
-        .await
-        .expect("failed to connect to Frama-C server");
-    (client, state)
+fn test_dir() -> std::path::PathBuf {
+    std::env::current_dir().unwrap().join("test")
 }
 
-async fn connect_p2() -> (FramaCClient, Arc<RwLock<SessionState>>) {
+async fn start_and_connect(
+    c_file: &str,
+    sock_path: &str,
+) -> (FramaCServerGuard, FramaCClient, Arc<RwLock<SessionState>>) {
+    let guard = FramaCServerGuard::start(c_file, sock_path).await;
     let state = Arc::new(RwLock::new(SessionState::default()));
-    let client = FramaCClient::connect(&socket_path_p2(), state.clone())
+    let client = FramaCClient::connect(sock_path, state.clone())
         .await
-        .expect("failed to connect to Frama-C server (phase 2)");
-    (client, state)
+        .expect("failed to connect to Frama-C server");
+    (guard, client, state)
 }
 
 // ─── Test: Full end-to-end workflow ──────────────────────────────────
-//
-// Single comprehensive test covering all 8 tools + protocol edge cases.
-// This is the ONLY test that connects to a live Frama-C server.
 
 #[tokio::test]
 async fn test_full_workflow() {
-    let (client, state) = connect().await;
+    let c_file = test_dir().join("test_abs.c");
+    let (_guard, client, state) =
+        start_and_connect(c_file.to_str().unwrap(), &socket_path()).await;
 
     // ── 1. Connect + state ──
     println!("\n=== 1. Connect + state ===");
@@ -446,16 +484,12 @@ async fn test_full_workflow() {
 }
 
 // ─── Test: Phase 2 end-to-end workflow ────────────────────────────────
-//
-// Prerequisites:
-//   frama-c test/test_phase2.c -server-socket /tmp/frama-c-test-p2.sock
-//
-// Covers: fetchGlobals, fetchGoals, getCallers, callgraph caching,
-//         EVA params, multi-function WP, callstack value queries.
 
 #[tokio::test]
 async fn test_phase2_workflow() {
-    let (client, state) = connect_p2().await;
+    let c_file = test_dir().join("test_phase2.c");
+    let (_guard, client, state) =
+        start_and_connect(c_file.to_str().unwrap(), &socket_path_p2()).await;
 
     // ── P2.1. Connect + verify functions and globals ──
     println!("\n=== P2.1. Connect + functions ===");
@@ -808,37 +842,12 @@ async fn test_phase2_workflow() {
 }
 
 // ─── Test: Comprehensive verification workflow (all 15 tools) ────────
-//
-// Prerequisites:
-//   frama-c test/test_comprehensive.c -server-socket /tmp/frama-c-test-comp.sock
-//
-// Simulates a complete AI agent verification workflow against a "Safe Buffer
-// Module" with behaviors, named ensures, volatile nondet input, and unsafe
-// functions. Exercises all 15 MCP tools' underlying API calls.
-//
-// Target C file provides:
-//   Functions: buf_push (behaviors ok/full), buf_get, buf_sum (loop),
-//              buf_avg, echo (named ensures correct/wrong),
-//              unsafe_read (no precondition), unsafe_avg (div-by-zero),
-//              run (orchestrator), main (volatile nondet)
-//   Globals:   data[CAPACITY], count, error_code, nondet (volatile)
-//   EVA alarms: unsafe_read (index_bound), unsafe_avg (division_by_zero),
-//               buf_sum/run (signed_overflow)
-//   WP goals:  buf_push (6 VALID), buf_get (2 VALID),
-//              echo (1 VALID correct + 1 NORESULT wrong)
-//   Call chain: main→run→buf_sum→buf_get (4 levels)
-
-async fn connect_comp() -> (FramaCClient, Arc<RwLock<SessionState>>) {
-    let state = Arc::new(RwLock::new(SessionState::default()));
-    let client = FramaCClient::connect(&socket_path_comp(), state.clone())
-        .await
-        .expect("failed to connect to Frama-C server (comprehensive)");
-    (client, state)
-}
 
 #[tokio::test]
 async fn test_comprehensive() {
-    let (client, state) = connect_comp().await;
+    let c_file = test_dir().join("test_comprehensive.c");
+    let (_guard, client, state) =
+        start_and_connect(c_file.to_str().unwrap(), &socket_path_comp()).await;
 
     // ═══════════════════════════════════════════════════════════════
     // PHASE A: Reconnaissance — connect, discover functions/globals/callgraph
@@ -1265,28 +1274,10 @@ async fn test_comprehensive() {
 }
 
 // ─── Test: Iterative verification workflow ────────────────────────────
-//
-// Prerequisites:
-//   frama-c test/test_iterative_raw.c -server-socket /tmp/frama-c-test-iter.sock
-//
-// Simulates the AI agent's core workflow:
-//   1. Load a raw C file (no ACSL) → EVA finds alarms
-//   2. Inject ACSL annotations → reload_project
-//   3. Re-run EVA → alarms change
-//   4. Run WP → prove annotations correct
-//   5. Verify and clean up
 
 fn socket_path_iter() -> String {
     std::env::var("FRAMA_C_SOCK_ITER")
         .unwrap_or_else(|_| "/tmp/frama-c-test-iter.sock".into())
-}
-
-async fn connect_iter() -> (FramaCClient, Arc<RwLock<SessionState>>) {
-    let state = Arc::new(RwLock::new(SessionState::default()));
-    let client = FramaCClient::connect(&socket_path_iter(), state.clone())
-        .await
-        .expect("failed to connect to Frama-C server (iterative)");
-    (client, state)
 }
 
 /// RAII guard: restores file content on drop (even on panic).
@@ -1347,7 +1338,8 @@ async fn test_iterative_workflow() {
         original: original_content.clone(),
     };
 
-    let (client, state) = connect_iter().await;
+    let (_server_guard, client, state) =
+        start_and_connect(&test_file_str, &socket_path_iter()).await;
 
     // ═══════════════════════════════════════════════════════════════
     // PHASE 1: Load raw C → EVA finds alarms
@@ -1843,4 +1835,182 @@ async fn test_connect_bad_socket() {
         Err(e) => println!("[ok] Expected error: {}", e),
         Ok(_) => panic!("should fail on nonexistent socket"),
     }
+}
+
+// ─── Test: Loop annotation multi-clause insertion (bug fix) ────────
+
+fn socket_path_loop_test() -> String {
+    std::env::var("FRAMA_C_SOCK_LOOP")
+        .unwrap_or_else(|_| "/tmp/frama-c-test-loop.sock".into())
+}
+
+#[tokio::test]
+async fn test_loop_annotation_multi_clause() {
+    // copy_counter.c has a while loop at stmt ~10
+    let bench_dir = std::env::current_dir()
+        .unwrap()
+        .join("test/copy_counter.c");
+    let c_file = bench_dir.to_str().unwrap();
+    let sock = socket_path_loop_test();
+    let (_guard, client, _state) = start_and_connect(c_file, &sock).await;
+
+    // 1. Add function contract
+    let spec_result = client
+        .exec(
+            "plugins.ast-utils.execAddAnnotation",
+            serde_json::json!({
+                "function": "copy_counter",
+                "kind": "spec",
+                "acsl": "requires c >= 0;\nassigns \\nothing;\nensures \\result == \\old(c);"
+            }),
+            Duration::from_secs(10),
+        )
+        .await
+        .expect("execAddAnnotation spec failed");
+    println!("[ok] Function contract added: {:?}", spec_result);
+
+    // 2. Find loop statement ID from printDeclaration (contains "while")
+    let decl = {
+        let st = _state.read().await;
+        let info = st.resolve_function("copy_counter").unwrap();
+        client
+            .get("kernel.ast.printDeclaration", serde_json::json!(info.declaration))
+            .await
+            .expect("printDeclaration failed")
+    };
+    let decl_str = serde_json::to_string(&decl).unwrap();
+    // printDeclaration contains "while (" — find the #s<N> before it
+    let loop_sid = {
+        let keyword = "while";
+        let pos = decl_str.find(keyword).expect("no 'while' in declaration");
+        let before = &decl_str[..pos];
+        let mut sid = None;
+        let mut search_from = 0;
+        while let Some(p) = before[search_from..].find("\"#s") {
+            let abs_pos = search_from + p;
+            let num_start = abs_pos + 3;
+            let num_end = (num_start..before.len())
+                .find(|&j| !before.as_bytes()[j].is_ascii_digit())
+                .unwrap_or(before.len());
+            if let Ok(n) = before[num_start..num_end].parse::<i64>() {
+                sid = Some(n);
+            }
+            search_from = abs_pos + 1;
+        }
+        sid.expect("could not find loop stmt in declaration")
+    };
+    println!("[ok] Loop stmt ID: {}", loop_sid);
+
+    // 3. KEY TEST: Add multi-line loop annotation (5 clauses in one call)
+    let loop_result = client
+        .exec(
+            "plugins.ast-utils.execAddAnnotation",
+            serde_json::json!({
+                "function": "copy_counter",
+                "kind": "annot",
+                "stmt": loop_sid,
+                "acsl": "loop invariant x + y == c;\nloop invariant x >= 0;\nloop invariant y >= 0;\nloop assigns x, y;\nloop variant x;"
+            }),
+            Duration::from_secs(10),
+        )
+        .await
+        .expect("execAddAnnotation loop failed");
+    println!("[ok] Loop annotation result: {:?}", loop_result);
+
+    // Verify count == 5 (all 5 clauses registered)
+    let count = loop_result["result"]["count"].as_i64().unwrap_or(0);
+    assert_eq!(count, 5, "Expected 5 loop clauses registered, got {}", count);
+    println!("[ok] All 5 loop clauses registered (bug fix verified)");
+
+    // 4. Run WP with timeout=30
+    let abs_decl = {
+        let st = _state.read().await;
+        st.resolve_function("copy_counter")
+            .expect("copy_counter not found")
+            .declaration
+            .clone()
+    };
+    // Register marker
+    client
+        .get("kernel.ast.printDeclaration", serde_json::json!(abs_decl))
+        .await
+        .expect("printDeclaration failed");
+    let pvdecl = abs_decl.replace("#F", "#v");
+    client
+        .exec(
+            "plugins.wp.startProofs",
+            serde_json::json!(pvdecl),
+            Duration::from_secs(120),
+        )
+        .await
+        .expect("startProofs failed");
+    println!("[ok] WP startProofs completed");
+
+    // 5. Check goals
+    client
+        .get("kernel.properties.reloadStatus", serde_json::json!(null))
+        .await
+        .expect("reloadStatus failed");
+    let props = client
+        .fetch_all("kernel.properties.fetchStatus")
+        .await
+        .expect("fetchStatus failed");
+
+    let total = props.len();
+    // 接受 "valid" + "valid_under_hyp"：两者都意味着 prover 派出去证过了，
+    // 区别只在 ACSL property 依赖图传播是否完成。GH Actions runner 偶发资源
+    // 紧张时 status propagation 异步任务来不及完成，property 留在
+    // valid_under_hyp 不升 valid（frama-c 自己 stdout 仍报告 "Proved goals 12/15"）。
+    // 测试本意是验"WP 派 prover 在工作"，valid_under_hyp 满足这个本意。
+    // 详见 commit message 调查记录。
+    let valid_count = props
+        .iter()
+        .filter(|p| matches!(
+            p["status"].as_str(),
+            Some("valid") | Some("valid_under_hyp")
+        ))
+        .count();
+
+    println!(
+        "[ok] WP results: {}/{} valid (含 valid_under_hyp)",
+        valid_count, total
+    );
+
+    // 阈值 8 是经验下限（实测本地 12 / CI 12），低于此说明 frama-c WP 没正常派
+    // prover 或派后大量 unknown/never_tried。fail 时 dump 全部 13 个 property
+    // 的 status/kind/key，让排查直接看哪些 property 异常。
+    if valid_count < 8 {
+        eprintln!("\n=== test_loop_annotation_multi_clause: per-goal status dump ===");
+        for (i, p) in props.iter().enumerate() {
+            eprintln!(
+                "  [{:2}] status={:18} kind={:25} key={}",
+                i,
+                p["status"].as_str().unwrap_or("?"),
+                p["kind"].as_str().unwrap_or("?"),
+                p["key"].as_str().unwrap_or("?")
+            );
+        }
+        eprintln!("=== end per-goal dump ===\n");
+        panic!(
+            "valid + valid_under_hyp count = {} / {}, expected ≥ 8 \
+             (see per-goal dump above; common cause: WP didn't dispatch \
+             prover or many properties stayed never_tried/unknown)",
+            valid_count, total
+        );
+    }
+
+    // 6. Cleanup (may fail due to Frama-C property_status assertion — non-critical)
+    match client
+        .exec(
+            "plugins.ast-utils.execRemoveAnnotations",
+            serde_json::json!("copy_counter"),
+            Duration::from_secs(10),
+        )
+        .await
+    {
+        Ok(rm_result) => println!("[ok] Annotations removed: {:?}", rm_result),
+        Err(e) => println!("[warn] Remove failed (non-critical): {}", e),
+    }
+
+    println!("\n=== test_loop_annotation_multi_clause PASSED ===");
 }

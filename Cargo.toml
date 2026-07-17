@@ -4,15 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# MCP protocol (official Rust SDK)
-rmcp = { version = "0.16", features = ["server", "transport-io", "macros"] }
+# MCP protocol (official Rust SDK).
+# Aligned with fv-core-mcp + mcp-server-fsm (both on 1.x).
+rmcp = { version = "1", features = ["server", "transport-io", "macros"] }
 
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# preserve_order: Value::Object 用 IndexMap 保留插入序（= ast-utils emit 的源序），
+# 不再在解析时按字母序丢序。修 collect_loop_sids 等「依赖 AST key 序」的整类问题
+# （详见 docs/fixes/vpfsm-review-b1-b2-fix.md B2）。Value 相等性仍顺序无关。
+serde_json = { version = "1", features = ["preserve_order"] }
 
 # Schema generation (rmcp requires schemars 1.0+)
 schemars = "1.0"
@@ -30,5 +34,27 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # CLI arguments
 clap = { version = "4", features = ["derive"] }
 
+
+# Regex (for prompt output parsing)
+regex = "1"
+
 # main error handling
 anyhow = "1"
+
+# Hash (for source_hash in snapshots)
+sha2 = "0.10"
+
+# Graph algorithms (verify-program-fsm: Tarjan SCC + Kahn 分层)
+petgraph = "0.6"
+
+# Timestamps (verify-program-fsm: FunctionCompletion.last_attempt_at)
+chrono = { version = "0.4", features = ["serde"] }
+
+[dev-dependencies]
+# Temp dirs for test fixtures (state dir, project files).
+tempfile = "3"
+
+# MCP client side + child-process transport for end-to-end stdio JSON-RPC tests.
+# Used by tests/mcp_stdio_test.rs to spawn the server binary and drive it
+# through the actual MCP wire protocol (no internal-API shortcuts).
+rmcp = { version = "1", features = ["client", "transport-child-process"] }

@@ -230,6 +230,57 @@ impl FramaCClient {
         Ok(client)
     }
 
+    /// Reconnect to a new Frama-C server, replacing the transport.
+    pub async fn reconnect(
+        &self,
+        path: &str,
+        state: Arc<RwLock<SessionState>>,
+    ) -> Result<(), FramaCError> {
+        let transport = Transport::connect(path).await?;
+        let mut new_inner = ClientInner {
+            transport,
+            counter: 0,
+        };
+
+        // Handshake (same as connect)
+        let probe_id = new_inner.next_id();
+        new_inner
+            .send_command(&FramaCCommand::Get {
+                id: probe_id.clone(),
+                request: "kernel.ast.getFiles".to_string(),
+                data: serde_json::Value::Null,
+            })
+            .await?;
+
+        let deadline = Instant::now() + Duration::from_secs(30);
+        loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() { break; }
+            match new_inner.recv_response(remaining).await? {
+                Some(FramaCResponse::CmdLineOff) => break,
+                Some(FramaCResponse::CmdLineOn) => continue,
+                Some(FramaCResponse::Data { .. }) => continue,
+                Some(_) => continue,
+                None => break,
+            }
+        }
+
+        // Replace inner transport
+        let mut inner = self.inner.lock().await;
+        *inner = new_inner;
+
+        // Re-fetch functions
+        drop(inner); // release lock before calling self methods
+        let entries = self.fetch_all("kernel.ast.fetchFunctions").await?;
+        {
+            let mut st = state.write().await;
+            st.update_functions(&entries);
+            st.project_loaded = true;
+        }
+
+        Ok(())
+    }
+
     pub async fn get(
         &self,
         request: &str,
