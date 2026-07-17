@@ -9,7 +9,7 @@ An [MCP](https://modelcontextprotocol.io/) server for [Frama-C](https://frama-c.
 ```
 AI Agent <── MCP (stdio) ──> Rust Server ──┬── Unix Socket ──> Frama-C (main)   ── EVA / WP / CIL
                               rmcp 1.x      │                   + ast-utils plugin
-                              43 tools      │
+                              42 tools      │
                               session state └── Unix Socket ──> Frama-C (sandbox) ── isolated CEGIS
                                                                 + ast-utils plugin
 ```
@@ -28,7 +28,7 @@ Two halves, both required / 两个必需的部分：
 
 `create_sandbox` 把一个函数**连同它全部的类型/被调用者/全局依赖**提取成一个独立的临时 C 文件，并在其上启动**独立的** Frama-C 实例。智能体可在沙箱里反复迭代 ACSL 注解并跑 WP，不污染主工程；验证通过的结果再显式合并回去。
 
-## MCP Tools / MCP 工具（43）
+## MCP Tools / MCP 工具（42）
 
 ### Project & Source / 工程与源码
 
@@ -49,7 +49,6 @@ Two halves, both required / 两个必需的部分：
 | `get_eva_alarms` / `get_eva_value` | List alarms; query value ranges at a program point / 列出报警；查询程序点值域 |
 | `investigate_alarm` | Deep dive: value ranges + callers + annotations in one call / 一次返回值域、调用者、注解 |
 | `suggest_verification_plan` | Analyze state, suggest next actions / 分析状态并建议下一步 |
-| `run_linear_invariant` | Linear loop-invariant synthesis helper / 线性循环不变式合成辅助 |
 
 ### WP / 演绎证明
 
@@ -213,7 +212,6 @@ src/
 ├── lib.rs                  # Library root / 库根
 ├── state.rs                # Session + conclusion + project state / 会话、结论、工程状态
 ├── topo.rs                 # Tarjan + Kahn topological order / 拓扑排序
-├── linear_invariant.rs     # Linear invariant CLI bridge / 线性不变式 CLI 桥接
 ├── error.rs                # Error types / 错误类型
 ├── frama_c/
 │   ├── client.rs           # Frama-C client (GET/SET/EXEC/POLL)

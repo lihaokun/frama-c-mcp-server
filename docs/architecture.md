@@ -13,7 +13,7 @@
 │                                                               │
 │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────────┐  │
 │  │ MCP Layer   │  │ Tool Router  │  │ State Manager       │  │
-│  │ (rmcp 1.x)  │  │ 43 tools     │  │ 会话状态 / 结论 /   │  │
+│  │ (rmcp 1.x)  │  │ 42 tools     │  │ 会话状态 / 结论 /   │  │
 │  │ stdio       │  │              │  │ 工程状态 / 锁       │  │
 │  └──────┬──────┘  └──────┬───────┘  └──────────┬──────────┘  │
 │         │                │                      │             │
@@ -45,13 +45,12 @@
 
 | 模块 | 职责 |
 |---|---|
-| `mcp/server.rs` | 43 个工具实现（工程/分析/WP/注解/沙箱/导航/验证状态）|
+| `mcp/server.rs` | 42 个工具实现（工程/分析/WP/注解/沙箱/导航/验证状态）|
 | `mcp/types.rs`, `mcp/param_compat.rs` | 工具参数类型 + 兼容层 |
 | `frama_c/client.rs` | Frama-C 客户端：GET/SET/EXEC/POLL 语义、进程惰性拉起与回收 |
 | `frama_c/codec.rs`, `frama_c/transport.rs` | 协议编解码（`S`+3 hex / `L`+7 hex 分帧）+ Unix socket 传输 |
 | `state.rs` | 会话状态、每函数验证结论、工程级编排状态、工程锁 |
 | `topo.rs` | Tarjan SCC + Kahn 分层，产出自下而上验证序 |
-| `linear_invariant.rs` | 线性循环不变式合成 CLI 桥接 |
 
 ### 2. ast-utils Frama-C 插件（`ast-utils/`，**必需**）
 

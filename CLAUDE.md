@@ -8,7 +8,7 @@
 
 | 部分 | 语言 | 作用 |
 |---|---|---|
-| `src/` — MCP server | Rust (rmcp 1.x) | 上游讲 MCP（stdio JSON-RPC），下游讲 Frama-C server 协议（Unix socket）。**43 个工具**。**惰性拉起** Frama-C 进程。 |
+| `src/` — MCP server | Rust (rmcp 1.x) | 上游讲 MCP（stdio JSON-RPC），下游讲 Frama-C server 协议（Unix socket）。**42 个工具**。**惰性拉起** Frama-C 进程。 |
 | `ast-utils/` — Frama-C 插件 | OCaml (dune) | 注册 MCP 依赖的 8 个自定义 server request（AST 访问、依赖提取、ACSL 注入、WP 配置、VC 详情等）。**没它大部分工具会失败。** |
 
 > 这正是早期架构文档里预留的「Phase 3：按需加 OCaml 插件扩展 Frama-C Server 能力（方案 C）」——现已落地为 `ast-utils`。
@@ -41,7 +41,7 @@ cargo build --release
 
 ```
 AI Agent <── MCP (stdio) ──> Rust Server ──┬── Unix Socket ──> Frama-C (main)    ── EVA / WP / CIL
-                              43 tools      │                   + ast-utils
+                              42 tools      │                   + ast-utils
                               session state └── Unix Socket ──> Frama-C (sandbox) ── 隔离的 CEGIS
                                                                 + ast-utils
 ```
@@ -77,7 +77,7 @@ CI（`.github/workflows/ci.yml`）两条线：纯 Rust 快跑；完整线装 Fra
 
 ## 文档
 
-- [README.md](README.md) — 使用说明、43 个工具、验证工作流
+- [README.md](README.md) — 使用说明、42 个工具、验证工作流
 - [docs/architecture.md](docs/architecture.md) — 当前架构
 - [docs/reference/frama-c-server-protocol-guide.md](docs/reference/frama-c-server-protocol-guide.md) — Frama-C server 协议参考
 - [docs/archive/](docs/archive/) — **历史设计记录**（早期方案选型、ZMQ 时代设计、FFI 实验、旧测试报告）。**已被现状取代，勿作现状参考。**

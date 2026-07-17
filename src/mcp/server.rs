@@ -1993,41 +1993,6 @@ impl FramaCMcpServer {
         )]))
     }
 
-    #[tool(description = "Run linear invariant inference on a transition system.")]
-    async fn run_linear_invariant(
-        &self,
-        Parameters(params): Parameters<RunLinearInvariantParams>,
-    ) -> Result<CallToolResult, McpError> {
-        use crate::linear_invariant::{json_to_in_format, parse_inv_output};
-
-        let in_text =
-            json_to_in_format(&params.input).map_err(|e| McpError::internal_error(e, None))?;
-
-        // Write temp file
-        let tmp = tempfile::NamedTempFile::new()
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-        std::fs::write(tmp.path(), &in_text)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        // Spawn CLI
-        let output = tokio::process::Command::new("linear_invariant")
-            .arg(tmp.path())
-            .output()
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        if output.status.success() {
-            let inv_text = String::from_utf8_lossy(&output.stdout);
-            let result = parse_inv_output(&inv_text);
-            Ok(CallToolResult::success(vec![Content::text(
-                serde_json::to_string_pretty(&result).unwrap_or_default(),
-            )]))
-        } else {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            Err(McpError::internal_error(stderr.to_string(), None))
-        }
-    }
-
     // ─── §4 Kernel overview handlers ─────────────────────────────────
 
     #[tool(description = "List all loaded source files.")]

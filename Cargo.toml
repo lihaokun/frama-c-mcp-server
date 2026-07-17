@@ -34,8 +34,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # CLI arguments
 clap = { version = "4", features = ["derive"] }
 
-# Temp files (for linear_invariant CLI)
-tempfile = "3"
 
 # Regex (for prompt output parsing)
 regex = "1"
@@ -53,6 +51,9 @@ petgraph = "0.6"
 chrono = { version = "0.4", features = ["serde"] }
 
 [dev-dependencies]
+# Temp dirs for test fixtures (state dir, project files).
+tempfile = "3"
+
 # MCP client side + child-process transport for end-to-end stdio JSON-RPC tests.
 # Used by tests/mcp_stdio_test.rs to spawn the server binary and drive it
 # through the actual MCP wire protocol (no internal-API shortcuts).

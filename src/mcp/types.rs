@@ -209,12 +209,6 @@ pub struct SuggestPlanParams {
     pub target: Option<String>,
 }
 
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct RunLinearInvariantParams {
-    /// Transition system as JSON (variables, locations, transitions)
-    pub input: serde_json::Value,
-}
-
 // --- Agent Phase 1 new tool params ---
 
 #[derive(Debug, Deserialize, JsonSchema)]
